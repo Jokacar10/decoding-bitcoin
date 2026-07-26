@@ -274,7 +274,23 @@ export default App;
       },
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/a65e45077fa4"
+  pythonHeight="23rem"
+  pythonCode={`class Stack:
+    def __init__(self, items=None):
+        self.items = items if items is not None else []
+
+    def push(self, hex_value):
+        new_item = bytes.fromhex(hex_value)
+        return Stack(self.items + [new_item])
+
+    def pop(self):
+        if not self.items:
+            raise IndexError("Stack is empty")
+        new_items = self.items[:-1]
+        return Stack(new_items)
+
+    def get_items(self):
+        return self.items`}
 />
 
 ## Hints

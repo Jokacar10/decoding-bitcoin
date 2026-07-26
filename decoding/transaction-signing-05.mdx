@@ -106,19 +106,209 @@ By double-hashing (SHA256d) this preimage, we get our `sighash`, which is what g
 
 Let's verify again our implementation against the official BIP143 test vectors.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/310d6789fd6c"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(50vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    code={`from commitment_hash import get_commitment_hash
+from create_basic_tx import create_input, create_output
+from utils import int_to_little_endian, varint
+
+def test_commitment_hash():
+    # Create valid inputs matching test vector
+    input1 = create_input(
+        txid="9f96ade4b41d5433f4eda31e1738ec2b36f6e7d1420d94a6af99801a88f7f7ff",
+        vout=0,
+        sequence=b'\\xee\\xff\\xff\\xff'
+    )
+    
+    input2 = create_input(
+        txid="8ac60eb9575db5b2d987e29f301b5b819ea83a5c6579d282d189cc04b8e151ef",
+        vout=1
+    )
+    
+    # Construct CORRECT outpoint (txid in little-endian + vout)
+    outpoint = (
+        bytes.fromhex("ef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a") +
+        int_to_little_endian(1, 4)
+    )
+    
+    # Create outputs from test vector
+    output1 = create_output(
+        amount=0x6b22c20,  # 112,340,000 satoshis
+        script_pubkey=bytes.fromhex('1976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac')
+    )
+    output2 = create_output(
+        amount=0xd519390,  # 223,450,000 satoshis
+        script_pubkey=bytes.fromhex('1976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac')
+    )
+    
+    # Generate signature hash
+    sighash = get_commitment_hash(
+        outpoint=outpoint,
+        scriptcode=bytes.fromhex('1976a9141d0f172a0ecb48aee1be1f2687d2963ae33f71a188ac'),
+        value=600000000,  # 6 BTC
+        outputs=[output1, output2],
+        all_inputs=[input1, input2]  # Pass all inputs explicitly
+    )
+    
+    # Print the signature hash in hexadecimal format
+    print(f"\\nSighash (hex): {sighash.hex()}")
+    
+    # Validate against BIP143 expected result
+    expected = bytes.fromhex('c37af31116d1b27caf68aae9e3ac82f1477929014d5b917657d0eb49478cb670')
+    assert sighash == expected, f"Mismatch: {sighash.hex()} vs {expected.hex()}"
+    print("\\n________________________________________")
+    print("\\nTest passed: Commitment hash matches BIP143 vector")
+    
+if __name__ == "__main__":
+    test_commitment_hash()`}
+    modules={{
+        "commitment_hash.py": `import hashlib
+from typing import List
+from utils import int_to_little_endian, varint
+from transaction_digest import get_transaction_digest
+
+def get_commitment_hash(
+    outpoint: bytes,           # The input being signed (txid + vout)
+    scriptcode: bytes,         # From step 2
+    value: int,                # Value of the output being spent
+    outputs: List[bytes],      # Transaction outputs
+    all_inputs: List[bytes]    # All transaction inputs (required for BIP143)
+) -> bytes:
+    """Calculate BIP143 sighash"""
+    
+    # Version (4 bytes little-endian)
+    version = int_to_little_endian(1, 4)
+    
+    # Get transaction digest components
+    hash_prevouts, hash_sequence, hash_outputs = get_transaction_digest(
+        all_inputs,  # Uses ALL transaction inputs
+        outputs
+    )
+    
+    # Value of spent output (8 bytes little-endian)
+    value_bytes = int_to_little_endian(value, 8)
+    
+    # Sequence for THIS input (4 bytes)
+    sequence = b'\\xff\\xff\\xff\\xff'  # From test vector
+    
+    # Locktime (4 bytes little-endian)
+    locktime = int_to_little_endian(0x11, 4)  # 17 in hex
+    
+    # SIGHASH_ALL (4 bytes little-endian)
+    sighash_type = int_to_little_endian(1, 4)
+    
+    # Build preimage according to BIP143 structure
+    preimage = (
+        version +
+        hash_prevouts +
+        hash_sequence +
+        outpoint +
+        scriptcode +
+        value_bytes +
+        sequence +
+        hash_outputs +
+        locktime +
+        sighash_type
+    )
+    
+    # Print the preimage in hexadecimal format
+    print(f"Preimage (hex): {preimage.hex()}")
+    
+    # Double SHA256 to produce the final sighash
+    return hashlib.sha256(hashlib.sha256(preimage).digest()).digest()`,
+        "create_basic_tx.py": `from utils import int_to_little_endian, varint
+
+def create_input(
+    txid: str,
+    vout: int,
+    script_sig: bytes = b'',
+    sequence: bytes = b'\\xff\\xff\\xff\\xff'
+) -> bytes:
+    """Create a transaction input"""
+    # Convert txid from hex string and reverse (to little-endian)
+    txid_bytes = bytes.fromhex(txid)[::-1]
+    
+    # Convert vout to 4 bytes, little-endian
+    vout_bytes = int_to_little_endian(vout, 4)
+    
+    # Script length and script
+    script_sig_length = varint(len(script_sig))
+    
+    return (
+        txid_bytes +           # 32 bytes
+        vout_bytes +          # 4 bytes
+        script_sig_length +   # 1 byte
+        script_sig +          # variable
+        sequence              # 4 bytes
+    )
+
+def create_output(
+    amount: int,
+    script_pubkey: bytes
+) -> bytes:
+    """Create a transaction output"""
+    # Amount (8 bytes, little-endian)
+    amount_bytes = int_to_little_endian(amount, 8)
+    
+    # Output structure:
+    # 1. Amount (8 bytes)
+    # 2. ScriptPubKey with length prefix
+    output_bytes = (
+        amount_bytes +          # value in satoshis
+        script_pubkey          # includes length prefix
+    )
+    
+    return output_bytes`,
+        "transaction_digest.py": `import hashlib
+from typing import List
+
+def dsha256(data: bytes) -> bytes:
+    """Double SHA256 hash"""
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+
+def get_transaction_digest(
+    inputs: List[bytes],
+    outputs: List[bytes]
+) -> tuple[bytes, bytes, bytes]:
+    """
+    Calculate BIP143 transaction digest components.
+    Returns (hashPrevouts, hashSequence, hashOutputs)
+    """
+    # For hashPrevouts: concatenate all outpoints (txid + vout)
+    outpoints = b''
+    sequences = b''
+    for tx_input in inputs:
+        outpoints += tx_input[:36]  # first 36 bytes are outpoint (txid + vout)
+        sequences += tx_input[-4:]   # last 4 bytes are sequence
+
+    # Calculate hashPrevouts
+    hash_prevouts = dsha256(outpoints)
+
+    # Calculate hashSequence
+    hash_sequence = dsha256(sequences)
+
+    # Calculate hashOutputs
+    outputs_data = b''.join(outputs)
+    hash_outputs = dsha256(outputs_data)
+
+    return hash_prevouts, hash_sequence, hash_outputs`,
+        "utils.py": `
+def int_to_little_endian(value: int, length: int) -> bytes:
+    """Convert an integer to little-endian bytes."""
+    return value.to_bytes(length, 'little')
+
+def varint(n: int) -> bytes:
+    """Encode an integer as a variable length integer."""
+    if n < 0xfd:
+        return bytes([n])
+    elif n <= 0xffff:
+        return b'\\xfd' + n.to_bytes(2, 'little')
+    elif n <= 0xffffffff:
+        return b'\\xfe' + n.to_bytes(4, 'little')
+    else:
+        return b'\\xff' + n.to_bytes(8, 'little')`
+    }}
+/>
 
 You can verify that the values we generated in the previous step match these test vectors from [BIP143](https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki).
 

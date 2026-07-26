@@ -158,7 +158,52 @@ return (
       }
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/40605e710feb"
+  pythonHeight="39rem"
+  pythonCode={`from decoder import decode_p2pk_scriptpubkey
+
+# Test cases
+test_cases = [
+    {
+        'input': '410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac',
+        'output': '0411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3 OP_CHECKSIG',
+        'type': 'Uncompressed'
+    },
+    {
+        'input': '2102E9A095A6A5790BC82FEADE07EE6FC77B05BC4DE7F3790C36D2ECC886D9EC0AC0ac',
+        'output': '02e9a095a6a5790bc82feade07ee6fc77b05bc4de7f3790c36d2ecc886d9ec0ac0 OP_CHECKSIG',
+        'type': 'Compressed'
+    }
+]
+
+print("P2PK ScriptPubKey Decoder")
+print("-------------------------")
+
+for i, case in enumerate(test_cases, 1):
+    print(f"\\nTest Case {i} ({case['type']} Public Key):")
+    print("Input:   ", case['input'])
+    print("Expected:", case['output'])
+    try:
+        result = decode_p2pk_scriptpubkey(case['input'])
+        print("Result:  ", result)
+        print("Status:  ", "PASSED" if result == case['output'] else "FAILED")
+    except Exception as e:
+        print("Error:   ", str(e))
+        print("Status:   FAILED")`}
+  pythonModules={{
+    "decoder.py": `OPS = {
+    'OP_CHECKSIG': 0xac
+}
+
+REVERSE_OPS = {
+    0xac: 'OP_CHECKSIG'
+}
+
+def decode_p2pk_scriptpubkey(hex_script):
+    # TODO: Implement the P2PK scriptPubKey decoding
+    # The function should take a hex string as input and return the decoded script in ASM format
+    # Example: "02e9a095a6a5790bc82feade07ee6fc77b05bc4de7f3790c36d2ecc886d9ec0ac0 OP_CHECKSIG"
+    pass`
+  }}
 />
 
 <Hint

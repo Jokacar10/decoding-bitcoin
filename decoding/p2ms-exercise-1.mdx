@@ -295,7 +295,35 @@ export default P2MSGame;`,
       }
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/ba8631472cea"
+  pythonHeight="20rem"
+  pythonCode={`from p2ms_exercise import construct_p2ms_p2sh_scriptpubkey
+
+# Test data
+pubkey1 = "02632178d046673c9729d828cfee388e121f497707f810c131e0d3fc0fe0bd66d6"
+pubkey2 = "03a0951ec7d3a9da9de171617026442fcd30f34d66100fab539853b43f508787d4"
+expected_result = "a9148ce5408cfeaddb7ccb2545ded41ef4781094548487"
+
+# Test the function
+result = construct_p2ms_p2sh_scriptpubkey(pubkey1, pubkey2)
+print(f"Public Key 1: {pubkey1}")
+print(f"Public Key 2: {pubkey2}")
+print(f"Result:   {result}")
+print(f"Expected: {expected_result}")
+print(f"Correct:  {result == expected_result}")`}
+  pythonModules={{
+    "p2ms_exercise.py": `import hashlib
+
+def construct_p2ms_p2sh_scriptpubkey(pubkey1: str, pubkey2: str) -> str:
+    # TODO: Implement the P2MS-P2SH scriptPubKey construction
+    # The function should take two public keys as input and return the P2MS-P2SH scriptPubKey in hex format
+    # Steps:
+    # 1. Create the 2-of-2 multisig redeem script
+    # 2. Convert the redeem script to bytes
+    # 3. Hash the redeem script using SHA256 and then RIPEMD160
+    # 4. Create the P2SH script: OP_HASH160 <redeemScriptHash> OP_EQUAL
+    # 5. Return the final script as a hexadecimal string
+    pass`
+  }}
 />
 
 You can look up the hex characters for each op_code in the [Bitcoin Script wiki page](https://en.bitcoin.it/wiki/Script).

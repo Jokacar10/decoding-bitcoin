@@ -1,22 +1,27 @@
 ---
 title: "MuSig"
 date: 2024-01-25T15:32:14Z
-lastmod: "2024-07-26"
+lastmod: "2026-07-18"
 draft: false
 category: Taproot
 layout: TopicBanner
-order: 505
+order: 4
+parent: schnorr-signature
 icon: "FaHashtag"
 images: ["/decoding-bitcoin/static/images/topics/thumbnails/musig-thumbnail.webp"]
 ---
+
+MuSig builds on Schnorr signatures. It combines several signers' public keys and signatures into a single key and signature.
+
+**TLDR:** Three signers produce one aggregate key and one 64-byte signature. On-chain it is indistinguishable from a single-signer Schnorr spend.
 
 By the end of this article, we want Alice, Bob, and Carol to sign a transaction using MuSig.
 
 We will explain step by step using both theory and code. Your task by the end is to write the code for this signature generation.
 
-## 1. Theory
+## Theory
 
-To make this article simple to follow, we will answer three important questions that will help you understand the concept: **What? Why? How?**
+We will answer three questions: **What? Why? How?**
 
 ### What is MuSig?
 
@@ -46,21 +51,21 @@ The reasons we use MuSig are:
 <div className="dark:hidden">
     <SvgDisplay
         src="/decoding-bitcoin/static/images/topics/taproot/musig-2.webp"
-        width="120%"
+        width="100%"
         height="auto"
     />
 </div>
 <div className="hidden dark:block">
     <SvgDisplay
         src="/decoding-bitcoin/static/images/topics/taproot/musig-2.webp"
-        width="120%"
+        width="100%"
         height="auto"
     />
 </div>
 
 ### How does MuSig work?
 
-Now we need your focus here, please. Grab a coffee, and let's dive in.
+Now we need your focus here, please. Grab a coffee.
 
 Alice, Bob, and Carol want to create an aggregated signature such as:
 
@@ -78,6 +83,10 @@ Some of these steps require rounds of communication between participants:
 
 -   Aggregating public keys does **not** require communication.
 -   Aggregating nonces and signatures requires **three rounds of communication** (MuSig2 optimizes this to **two rounds**).
+
+<ExpandableAlert type="info" title="NOTE: This page teaches the original MuSig">
+    Production software today uses <a href="https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki" target="_blank">MuSig2 (BIP327)</a>, a newer version of this protocol that needs only two rounds of communication.
+</ExpandableAlert>
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -133,7 +142,7 @@ But if Bob knows Alice's public key (P<span className="text-xs align-sub">a</spa
 
 When Alice calculates the signature, this manipulation causes issues.
 
-### Let's break it down:
+### The math:
 
 The aggregated Schnorr signature equation is:
 
@@ -143,7 +152,7 @@ The aggregated Schnorr signature equation is:
 
 Expanding it:
 
-**s<span className="text-xs align-sub">agg</span> _ G = (R<span className="text-xs align-sub">a</span> + h _ P<span className="text-xs align-sub">a</span>) + (R'<span className="text-xs align-sub">b</span> + h \* P'<span className="text-xs align-sub">b</span>)**  
+**s<span className="text-xs align-sub">agg</span> \* G = (R<span className="text-xs align-sub">a</span> + h \* P<span className="text-xs align-sub">a</span>) + (R'<span className="text-xs align-sub">b</span> + h \* P'<span className="text-xs align-sub">b</span>)**  
 **= R<span className="text-xs align-sub">a</span> + R'<span className="text-xs align-sub">b</span> + h(P<span className="text-xs align-sub">a</span> + P'<span className="text-xs align-sub">b</span>)**  
 **= R<span className="text-xs align-sub">a</span> + (R<span className="text-xs align-sub">b</span> - R<span className="text-xs align-sub">a</span>) + h(P<span className="text-xs align-sub">a</span> + P<span className="text-xs align-sub">b</span> - P<span className="text-xs align-sub">a</span>)**  
 **= R<span className="text-xs align-sub">b</span> + h(P<span className="text-xs align-sub">b</span>)**  
@@ -162,7 +171,7 @@ To counteract this, we add a **challenge factor** to each participant's public k
   $$\mathbf{P'_i = c_i \times P_i}$$
 </div>
 
-The challenge factor is generated based on the participants' aggregated public key.
+The challenge factor is generated from a hash of **all** participants' individual public keys: first **c<span className="text-xs align-sub">all</span> = H(P<span className="text-xs align-sub">a</span>, P<span className="text-xs align-sub">b</span>, P<span className="text-xs align-sub">c</span>)**, then **c<span className="text-xs align-sub">i</span> = H(c<span className="text-xs align-sub">all</span> | P<span className="text-xs align-sub">i</span>)**.
 
 This ensures that no individual participant can create a public key that offsets the public keys of others.
 
@@ -193,19 +202,49 @@ In this exercise, we'll use the `generate_musig_key(pubkey_list)` function to ge
 -   The challenge map contains `ECPubKey_i, challenge_data_i` key - value pairs.
 -   The aggregate pubkey is an `ECPubKey` object.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/baaf16e32154"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(75vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    preset="musig"
+    code={`# main.py
+from key import generate_key_pair, generate_bip340_key_pair, ECKey, SECP256K1_FIELD_SIZE
+from script import tagged_hash, sha256
+from musig import aggregate_musig_signatures, aggregate_schnorr_nonces, generate_musig_key, sign_musig
+
+
+# Compute key pairs
+privkey1, pubkey1 = generate_key_pair(sha256(b'key0'))
+privkey2, pubkey2 = generate_key_pair(sha256(b'key1'))
+privkey3, pubkey3 = generate_key_pair(sha256(b'key2'))
+pubkeys = [pubkey1, pubkey2, pubkey3]
+
+# Compute key challenges
+# Method: use generate_musig_key() on the list of pubkeys.
+# generate_musig_key() returns a challenge map and the aggregate public key.
+c_map, pubkey_agg =  # TODO: implement
+print("Aggregated Public Key is {}\\n".format(pubkey_agg.get_bytes().hex()))
+
+# Multiply key pairs by challenge factor
+privkey1_c =  # TODO: implement
+privkey2_c =  # TODO: implement
+privkey3_c =  # TODO: implement
+pubkey1_c =  # TODO: implement
+pubkey2_c =  # TODO: implement
+pubkey3_c =  # TODO: implement
+
+# Determine if the private and public keys need to be negated. 
+# Hint: The aggregate public key is the one that needs to be valid.
+if # TODO: implement
+
+print("Tweaked privkey1 is {}".format(privkey1_c))
+print("Tweaked privkey2 is {}".format(privkey2_c))
+print("Tweaked privkey3 is {}".format(privkey3_c))
+
+assert privkey1_c.secret == 104717570570407299858230629579807834166658508605015363884161538594382975780625
+assert privkey2_c.secret == 65554880484297966965546994775376394861215085064604177497808278620612854069980
+assert privkey3_c.secret == 106998690642216524894360365246223287721822845133760006050846956016514597569168
+
+print("\\nSuccess!")`}
+/>
 
 <ExpandableAlert
     title="Solution code"
@@ -221,35 +260,29 @@ privkey3, pubkey3 = generate_key_pair(sha256(b'key2'))
 pubkeys = [pubkey1, pubkey2, pubkey3]
 
 # Compute key challenges
-
 # Method: use generate_musig_key() on the list of pubkeys.
-
 # generate_musig_key() returns a challenge map and the aggregate public key.
-
 c_map, pubkey_agg = generate_musig_key(pubkeys)
 print("Aggregated Public Key is {}\n".format(pubkey_agg.get_bytes().hex()))
 
 # Multiply key pairs by challenge factor
-
-privkey1*c = privkey1 * c*map[pubkey1]
-privkey2_c = privkey2 * c*map[pubkey2]
-privkey3_c = privkey3 * c*map[pubkey3]
-pubkey1_c = pubkey1 * c*map[pubkey1]
-pubkey2_c = pubkey2 * c*map[pubkey2]
+privkey1_c = privkey1 * c_map[pubkey1]
+privkey2_c = privkey2 * c_map[pubkey2]
+privkey3_c = privkey3 * c_map[pubkey3]
+pubkey1_c = pubkey1 * c_map[pubkey1]
+pubkey2_c = pubkey2 * c_map[pubkey2]
 pubkey3_c = pubkey3 * c_map[pubkey3]
 
 # Determine if the private and public keys need to be negated.
-
 # Hint: The aggregate public key is the one that needs to be valid.
-
-if pubkey_agg.get_y()%2 != 0:
-privkey1_c.negate()
-privkey2_c.negate()
-privkey3_c.negate()
-pubkey1_c.negate()
-pubkey2_c.negate()
-pubkey3_c.negate()
-pubkey_agg.negate()
+if pubkey_agg.get_y() % 2 != 0:
+    privkey1_c.negate()
+    privkey2_c.negate()
+    privkey3_c.negate()
+    pubkey1_c.negate()
+    pubkey2_c.negate()
+    pubkey3_c.negate()
+    pubkey_agg.negate()
 
 print("Tweaked privkey1 is {}".format(privkey1_c))
 print("Tweaked privkey2 is {}".format(privkey2_c))
@@ -260,79 +293,116 @@ assert privkey2_c.secret == 6555488048429796696554699477537639486121508506460417
 assert privkey3_c.secret == 106998690642216524894360365246223287721822845133760006050846956016514597569168
 
 print("\nSuccess!")
+```
 
-````
 </ExpandableAlert>
+
 ---
 
 Now, let’s move to the next step: **Aggregate Nonce**.
-
 
 ## Step 2: Aggregate Nonce (1st and 2nd Round of Communication)
 
 The process of aggregating nonces is as follows:
 
-1. Alice, Bob, and Carol each generate a random nonce **k<span className="text-xs align-sub">A</span>**, **k<span className="text-xs align-sub">B</span>**, and **k<span className="text-xs align-sub">C</span>**.
+1. Alice, Bob, and Carol each generate a random nonce **k<span className="text-xs align-sub">a</span>**, **k<span className="text-xs align-sub">b</span>**, and **k<span className="text-xs align-sub">c</span>**.
 2. They calculate their respective nonce points:
-   **R<span className="text-xs align-sub">A</span> = k<span className="text-xs align-sub">A</span> * G**, **R<span className="text-xs align-sub">B</span> = k<span className="text-xs align-sub">B</span> * G**, **R<span className="text-xs align-sub">C</span> = k<span className="text-xs align-sub">C</span> * G**.
-3. They exchange these nonce points (**R<span className="text-xs align-sub">A</span>**, **R<span className="text-xs align-sub">B</span>**, and **R<span className="text-xs align-sub">C</span>**).
+   **R<span className="text-xs align-sub">a</span> = k<span className="text-xs align-sub">a</span> * G**, **R<span className="text-xs align-sub">b</span> = k<span className="text-xs align-sub">b</span> * G**, **R<span className="text-xs align-sub">c</span> = k<span className="text-xs align-sub">c</span> * G**.
+3. They exchange these nonce points (**R<span className="text-xs align-sub">a</span>**, **R<span className="text-xs align-sub">b</span>**, and **R<span className="text-xs align-sub">c</span>**).
 4. Finally, they calculate the aggregated nonce:
-   **R<span className="text-xs align-sub">agg</span> = R<span className="text-xs align-sub">A</span> + R<span className="text-xs align-sub">B</span> + R<span className="text-xs align-sub">C</span>**
-
----
+   **R<span className="text-xs align-sub">agg</span> = R<span className="text-xs align-sub">a</span> + R<span className="text-xs align-sub">b</span> + R<span className="text-xs align-sub">c</span>**
 
 ### Where do the rounds of communication happen in this process?
 
-Great question! The process of aggregating nonces is somewhat similar to aggregating public keys.
+The process of aggregating nonces is somewhat similar to aggregating public keys.
 
-**Except**: Public keys (e.g., **P<span className="text-xs align-sub">A</span>**, **P<span className="text-xs align-sub">B</span>**, and **P<span className="text-xs align-sub">C</span>**) stay the same for every signature process, but random numbers (**k<span className="text-xs align-sub">A</span>**, **k<span className="text-xs align-sub">B</span>**, **k<span className="text-xs align-sub">C</span>**) must change with every signature.
-
-Thus, in each signature process, we need a round of communication where Alice, Bob, and Carol exchange their **R<span className="text-xs align-sub">i</span>** values to construct:
-**R<span className="text-xs align-sub">agg</span> = R<span className="text-xs align-sub">A</span> + R<span className="text-xs align-sub">B</span> + R<span className="text-xs align-sub">C</span>**
-
-However, before this step (where they exchange **R<span className="text-xs align-sub">i</span>**), there is a **prior round of communication** to ensure none of them cheats by changing their **R<span className="text-xs align-sub">i</span>** after seeing the others’ values.
-
----
+**Except**: Public keys (e.g., **P<span className="text-xs align-sub">a</span>**, **P<span className="text-xs align-sub">b</span>**, and **P<span className="text-xs align-sub">c</span>**) stay the same for every signature process, but random numbers (**k<span className="text-xs align-sub">a</span>**, **k<span className="text-xs align-sub">b</span>**, **k<span className="text-xs align-sub">c</span>**) must change with every signature. So every new signature needs fresh rounds of communication.
 
 ### How do we prevent cheating?
 
-To prevent cheating, Alice, Bob, and Carol must first exchange the **hashes** of their nonce points (e.g., **H(R<span className="text-xs align-sub">A</span>)**, **H(R<span className="text-xs align-sub">B</span>)**, **H(R<span className="text-xs align-sub">C</span>)**) before revealing their actual **R<span className="text-xs align-sub">i</span>** values. This ensures that once they reveal their **R<span className="text-xs align-sub">i</span>**, they cannot modify their values after seeing others’.
-
----
-
-### Summary: Two Rounds of Communication for Nonce Aggregation
+Nonce aggregation takes two rounds of communication:
 
 1. **Exchange hash commitments:**
-   Alice, Bob, and Carol share **H(R<span className="text-xs align-sub">A</span>)**, **H(R<span className="text-xs align-sub">B</span>)**, and **H(R<span className="text-xs align-sub">C</span>)**.
+   Alice, Bob, and Carol share **H(R<span className="text-xs align-sub">a</span>)**, **H(R<span className="text-xs align-sub">b</span>)**, and **H(R<span className="text-xs align-sub">c</span>)**.
 
 2. **Exchange nonce points:**
-   They reveal **R<span className="text-xs align-sub">A</span>**, **R<span className="text-xs align-sub">B</span>**, and **R<span className="text-xs align-sub">C</span>**.
+   They reveal **R<span className="text-xs align-sub">a</span>**, **R<span className="text-xs align-sub">b</span>**, and **R<span className="text-xs align-sub">c</span>**.
+
+The commitments come first so nobody can change their nonce point after seeing the others'.
 
 Once all **R<span className="text-xs align-sub">i</span>** values are shared, they compute the aggregated nonce:
-**R<span className="text-xs align-sub">agg</span> = R<span className="text-xs align-sub">A</span> + R<span className="text-xs align-sub">B</span> + R<span className="text-xs align-sub">C</span>**
+**R<span className="text-xs align-sub">agg</span> = R<span className="text-xs align-sub">a</span> + R<span className="text-xs align-sub">b</span> + R<span className="text-xs align-sub">c</span>**
 
 ---
 
-
----
 ### Exercise 2: Compute 3-of-3 MuSig nonce
 
 In this exercise, we'll generate nonces for individual participants, calculate the nonce point commitments, and then generate an aggregate nonce point.
 
+<PythonPlayground
+    height="40rem"
+    preset="musig"
+    code={`# main.py
+from key import generate_key_pair, generate_bip340_key_pair, ECKey, SECP256K1_FIELD_SIZE
+from script import tagged_hash, sha256
+from musig import aggregate_musig_signatures, aggregate_schnorr_nonces, generate_musig_key, sign_musig
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/08316531853a"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(75vh)]"
-    ></iframe>
-</div>
+
+# Generate nonces and nonce points
+# We set the nonces manually here for testing purposes, but usually we'll call generate_schnorr_nonce()
+# to generate a random nonce point
+# Method: generate_schnorr_nonce() with no argument generates a random nonce
+k1 = ECKey().set(101)
+k2 = ECKey().set(222)
+k3 = ECKey().set(333)
+test_k1 = ECKey().set(k1.secret)
+test_k2 = ECKey().set(k2.secret)
+test_k3 = ECKey().set(k3.secret)
+
+# Method: use get_pubkey() to get the associated nonce point.
+R1 =  # TODO: implement
+R2 =  # TODO: implement
+R3 =  # TODO: implement
+
+# Round 1: Generate nonce point commitments and exchange them
+# Method: use sha256() on the nonce point. sha256() takes a bytes object, so extract the bytes from the nonce point.
+R1_digest =  # TODO: implement
+R2_digest =  # TODO: implement
+R3_digest =  # TODO: implement
+
+# Round 2: Exchange the nonce points. Each participant verifies that the nonce point commitment matches the nonce point.
+assert R1_digest.hex() == "38018cfa00483e751b166e7d982a5bb8264fb3309739c2f432e79791a1c9aaf7"
+assert R2_digest.hex() == "9eb8fac583a9d83d4753c454e4ab4de833b3496d093a6f2df507a6a39424c745"
+assert R3_digest.hex() == "103ea7eeb151bc6bd2c1e54ecaaad303b1c022bb205c5430daac796924a80ed0"
+
+# Aggregate nonces
+# Tip: Add the individual nonce points together. If the aggregated nonce does not have an even Y
+# then negate the aggregate nonce and individual nonce scalars.
+R_agg =  # TODO: implement
+if  # TODO: implement
+
+
+
+
+
+print("Individual nonce scalars:\\n\\t{}, \\n\\t{}, \\n\\t{}.\\n".format(k1, k2, k3))
+print("Aggregate nonce point: {}\\n".format(R_agg))
+
+# Test your solution against the aggregate_schnorr_nonces() helper function.
+# aggregate_schnorr_nonces() aggregates the nonces and returns whether the individual nonces need to be negated.
+test_R_agg, negated = aggregate_schnorr_nonces([R1, R2, R3])
+if negated:
+    test_k1.negate()
+    test_k2.negate()
+    test_k3.negate()
+
+assert R_agg == test_R_agg
+assert k1 == test_k1
+assert k2 == test_k2
+assert k3 == test_k3
+
+print("Success!")`}
+/>
 
 <ExpandableAlert
     title="Solution code"
@@ -371,8 +441,8 @@ assert R3_digest.hex() == "103ea7eeb151bc6bd2c1e54ecaaad303b1c022bb205c5430daac7
 # Aggregate nonces
 # Tip: Add the individual nonce points together. If the aggregated nonce does not have an even Y
 # then negate the aggregate nonce and individual nonce scalars.
-R_agg =  R1 + R2 + R3
-if R_agg.get_y()%2 != 0:
+R_agg = R1 + R2 + R3
+if R_agg.get_y() % 2 != 0:
     k1.negate()
     k2.negate()
     k3.negate()
@@ -395,73 +465,147 @@ assert k2 == test_k2
 assert k3 == test_k3
 
 print("Success!")
-````
+```
 
 </ExpandableAlert>
 
 ## Step 3: Signature Aggregation (Final Step)
 
-After computing the **aggregate public key** (`P_agg`) and **aggregate nonce** (`R_agg`), each participant calculates their **partial signature**:
+After computing the **aggregate public key** ($P_{agg}$) and **aggregate nonce** ($R_{agg}$), each participant calculates their **partial signature**:
 
 <div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_i = k_i + H(x(R_{agg}) | P_{agg} | m) \times d_i}$$
+  $$\mathbf{s_i = k_i + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_i}$$
 </div>
 
 Where:
 
--   `k_i`: Participant's random nonce.
--   `d_i`: Participant's private key.
--   `H`: Hash function with `R_agg`, `P_agg`, and the message `m`.
-
----
+-   $k_i$: Participant's random nonce.
+-   $d_i$: Participant's challenge-tweaked private key ($c_i \cdot d_i$, the value computed in Step 1).
+-   $H$: Hash function with $R_{agg}$, $P_{agg}$, and the message $m$.
 
 ### Aggregating the Signatures
 
-Participants exchange their `s_i` values, and the **aggregate signature** is computed as:
+Participants exchange their $s_i$ values, and the **aggregate signature** is computed as:
 
-`s_agg = s_A + s_B + s_C`
+<div className="text-center my-4 text-orange-500">
+  $$\mathbf{s_{agg} = s_a + s_b + s_c}$$
+</div>
 
 This simplifies to:
 
 <div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_{agg} = k_{agg} + H(x(R_{agg}) | P_{agg} | m) \times d_{agg}}$$
+  $$\mathbf{s_{agg} = k_{agg} + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_{agg}}$$
 </div>
 
 Where:
 
--   `k_agg = k_A + k_B + k_C` (aggregate nonce scalar).
--   `d_agg = d_A + d_B + d_C` (aggregate private key scalar).
-
----
+-   $k_{agg} = k_a + k_b + k_c$ (aggregate nonce scalar).
+-   $d_{agg} = d_a + d_b + d_c$ (aggregate private key scalar).
 
 ### Final Signature
 
 The final aggregate signature is:
 
-    **(R<span className="text-xs align-sub">agg</span>, s
-    <span className="text-xs align-sub">agg</span>)**
+**(R<span className="text-xs align-sub">agg</span>, s<span className="text-xs align-sub">agg</span>)**
 
-This pair can be verified using <code>P<span className="text-xs align-sub">agg</span></code> and the message `m`.
+This pair can be verified using $P_{agg}$ and the message $m$.
 
 ---
 
 ### Exercise 3: Compute aggregated MuSig signature
 
-In this exercise, we'll generate nonces for individual participants, calculate the nonce point commitments, and then generate an aggregate nonce point.
+In this exercise, each participant creates their partial signature. We then aggregate the partial signatures and verify the result against the aggregate public key.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/3c706a38c07e"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(75vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    preset="musig"
+    code={`# main.py
+from key import generate_key_pair, generate_bip340_key_pair, ECKey, SECP256K1_FIELD_SIZE
+from script import tagged_hash, sha256
+from musig import aggregate_musig_signatures, aggregate_schnorr_nonces, generate_musig_key, sign_musig
+
+
+# Compute key pairs
+privkey1, pubkey1 = generate_key_pair(sha256(b'key0'))
+privkey2, pubkey2 = generate_key_pair(sha256(b'key1'))
+privkey3, pubkey3 = generate_key_pair(sha256(b'key2'))
+pubkeys = [pubkey1, pubkey2, pubkey3]
+
+# Compute key challenges
+# Method: use generate_musig_key() on the list of pubkeys.
+# generate_musig_key() returns a challenge map and the aggregate public key.
+c_map, pubkey_agg = generate_musig_key(pubkeys)
+print("Aggregated Public Key is {}\\n".format(pubkey_agg.get_bytes().hex()))
+
+# Multiply key pairs by challenge factor
+privkey1_c = privkey1 * c_map[pubkey1]
+privkey2_c = privkey2 * c_map[pubkey2]
+privkey3_c = privkey3 * c_map[pubkey3]
+pubkey1_c = pubkey1 * c_map[pubkey1]
+pubkey2_c = pubkey2 * c_map[pubkey2]
+pubkey3_c = pubkey3 * c_map[pubkey3]
+
+# Determine if the private and public keys need to be negated. 
+# Hint: The aggregate public key is the one that needs to be valid.
+if pubkey_agg.get_y()%2 != 0:
+    privkey1_c.negate()
+    privkey2_c.negate()
+    privkey3_c.negate()
+    pubkey1_c.negate()
+    pubkey2_c.negate()
+    pubkey3_c.negate()
+    pubkey_agg.negate()
+    
+# Generate nonces and nonce points
+# We set the nonces manually here for testing purposes, but usually we'll call generate_schnorr_nonce()
+# to generate a random nonce point
+# Method: generate_schnorr_nonce() with no argument generates a random nonce
+k1 = ECKey().set(101)
+k2 = ECKey().set(222)
+k3 = ECKey().set(333)
+
+# Method: use get_pubkey() to get the associated nonce point.
+R1 = k1.get_pubkey()
+R2 = k2.get_pubkey()
+R3 = k3.get_pubkey()
+
+
+# Aggregate nonces
+# Tip: Add the individual nonce points together. If the aggregated nonce does not have an even Y
+# then negate the aggregate nonce and individual nonce scalars.
+R_agg =  R1 + R2 + R3
+if R_agg.get_y()%2 != 0:
+    k1.negate()
+    k2.negate()
+    k3.negate()
+    R_agg.negate()
+
+
+
+msg = sha256(b'transaction')
+
+# Generate partial signatures
+# Method: use sign_musig() with:
+#     - individual (tweaked) privkey
+#     - individual nonce scalar
+#     - aggregate nonce point
+#     - aggregate pubkey
+#     - msg
+s1 =  # TODO: implement
+s2 =  # TODO: implement
+s3 =  # TODO: implement
+
+print("Partial signatures:\\n\\t{}\\n\\t{}\\n\\t{}\\n".format(s1, s2, s3))
+
+# Aggregate signatures
+# Method: use aggregate_musig_signatures with list of individual signatures along with the aggregate nonce point
+sig_agg =  # TODO: implement
+print("Aggregate signature:\\n\\t{}\\n".format(sig_agg.hex()))
+
+# Verify signature against aggregate public key
+assert pubkey_agg.verify_schnorr(sig_agg, msg)
+print("Success! Signature verifies against aggregate pubkey")`}
+/>
 
 <ExpandableAlert
     title="Solution code"
@@ -473,19 +617,12 @@ In this exercise, we'll generate nonces for individual participants, calculate t
 msg = sha256(b'transaction')
 
 # Generate partial signatures
-
 # Method: use sign_musig() with:
-
 # - individual (tweaked) privkey
-
 # - individual nonce scalar
-
 # - aggregate nonce point
-
 # - aggregate pubkey
-
 # - msg
-
 s1 = sign_musig(privkey1_c, k1, R_agg, pubkey_agg, msg)
 s2 = sign_musig(privkey2_c, k2, R_agg, pubkey_agg, msg)
 s3 = sign_musig(privkey3_c, k3, R_agg, pubkey_agg, msg)
@@ -493,17 +630,17 @@ s3 = sign_musig(privkey3_c, k3, R_agg, pubkey_agg, msg)
 print("Partial signatures:\n\t{}\n\t{}\n\t{}\n".format(s1, s2, s3))
 
 # Aggregate signatures
-
 # Method: use aggregate_musig_signatures with list of individual signatures
-
 sig_agg = aggregate_musig_signatures([s1, s2, s3], R_agg)
 print("Aggregate signature:\n\t{}\n".format(sig_agg.hex()))
 
 # Verify signature against aggregate public key
-
 assert pubkey_agg.verify_schnorr(sig_agg, msg)
 print("Success! Signature verifies against aggregate pubkey")
+```
 
-```
 </ExpandableAlert>
-```
+
+Alice, Bob, and Carol now share one key and one signature.
+
+---

@@ -302,7 +302,30 @@ export default P2PKGame;`
       }
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/7a13890e44b5"
+  pythonHeight="20rem"
+  pythonCode={`import unittest
+from p2pk_script import construct_p2pk_scriptpubkey
+
+class TestP2PKScriptPubKey(unittest.TestCase):
+    def test_construct_p2pk_scriptpubkey(self):
+        public_key = '02802e2df5f9fb88065630e5fa3b6f7b7a89deef2b6a3cb5203cd0b897f66acae4'
+        expected_scriptpubkey = '2102802e2df5f9fb88065630e5fa3b6f7b7a89deef2b6a3cb5203cd0b897f66acae4ac'
+
+        result = construct_p2pk_scriptpubkey(public_key)
+        self.assertEqual(result, expected_scriptpubkey)
+
+# exit=False so the runtime is not stopped by unittest's sys.exit()
+unittest.main(argv=[''], exit=False, verbosity=2)`}
+  pythonModules={{
+    "p2pk_script.py": `def construct_p2pk_scriptpubkey(public_key_hex):
+    # 1- Convert hex public key to bytes
+    
+    # 2- Get the length of the public key
+
+    # 3- Create the P2PK script
+
+    return script_pub_key.hex()`
+  }}
 />
 
 You can look up the hex characters for each op_code in the [Bitcoin Script wiki page](https://en.bitcoin.it/wiki/Script).

@@ -106,16 +106,158 @@ Locktime: 11000000`}
 
 Let's test our code with the test vector from the <a href="https://github.com/bitcoin/bips/blob/58ffd93812ff25e87d53d1f202fbb389fdfb85bb/bip-0143.mediawiki?plain=1#L146" target="_blank">official BIP143 proposal</a>.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/e3098585e3c8"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(50vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    code={`from create_basic_tx import create_input, create_output, create_basic_tx
+
+def test_transaction_creation():
+    # First input
+    input1 = create_input(
+        txid="9f96ade4b41d5433f4eda31e1738ec2b36f6e7d1420d94a6af99801a88f7f7ff",
+        vout=0,
+        sequence=b'\\xee\\xff\\xff\\xff'
+    )
+    
+    # Second input
+    input2 = create_input(
+        txid="8ac60eb9575db5b2d987e29f301b5b819ea83a5c6579d282d189cc04b8e151ef",
+        vout=1
+    )
+    
+    # Create outputs
+    output1 = create_output(
+        amount=0x0000000006b22c20,  # 1.1234 BTC
+        script_pubkey=bytes.fromhex('1976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac')
+    )
+    
+    output2 = create_output(
+        amount=0x000000000d519390,  # 2.2345 BTC
+        script_pubkey=bytes.fromhex('1976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac')
+    )
+    
+    # Create the complete transaction
+    tx = create_basic_tx(
+        version=1,
+        inputs=[input1, input2],
+        outputs=[output1, output2],
+        locktime=0x11,
+        segwit=False
+    )
+    
+    # Expected result from BIP143
+    expected = bytes.fromhex(
+        '0100000002fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f'
+        '0000000000eeffffffef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57'
+        'b90ec68a0100000000ffffffff02202cb206000000001976a9148280b37df378db99f66f85'
+        'c95a783a76ac7a6d5988ac9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce'
+        '2f0167faa815988ac11000000'
+    )
+    
+    
+    print("Generated tx:", tx.hex())
+    print("Expected tx :", expected.hex())
+    assert tx == expected, "Transaction does not match expected output"
+    print("------------------------")
+    print("Test passed!")
+
+if __name__ == "__main__":
+    test_transaction_creation()`}
+    modules={{
+        "create_basic_tx.py": `
+def create_basic_tx(
+    version: int,
+    inputs: list,
+    outputs: list,
+    locktime: int,
+    segwit: bool = False
+) -> bytes:
+    # 4-byte version in little-endian
+    tx_version = int_to_little_endian(version, 4)
+    
+    # Marker + Flag for segwit (only if segwit=True)
+    marker_flag = b'\\x00\\x01' if segwit else b''
+    
+    # Number of inputs (varint)
+    in_count = varint(len(inputs))
+    
+    # Number of outputs (varint)
+    out_count = varint(len(outputs))
+    
+    # Serialize inputs
+    serialized_inputs = b''.join(inputs)
+    
+    # Serialize outputs
+    serialized_outputs = b''.join(outputs)
+    
+    # Locktime (4 bytes)
+    tx_locktime = int_to_little_endian(locktime, 4)
+    
+    # Combine them
+    return (
+        tx_version +
+        marker_flag +
+        in_count +
+        serialized_inputs +
+        out_count +
+        serialized_outputs +
+        tx_locktime
+    )
+
+def create_input(
+    txid: str,
+    vout: int,
+    script_sig: bytes = b'',
+    sequence: bytes = b'\\xff\\xff\\xff\\xff'
+) -> bytes:
+    """Create a transaction input"""
+    # Convert txid from hex string and reverse (to little-endian)
+    txid_bytes = bytes.fromhex(txid)[::-1]
+    
+    # Convert vout to 4 bytes, little-endian
+    vout_bytes = int_to_little_endian(vout, 4)
+    
+    # Script length and script
+    script_sig_length = varint(len(script_sig))
+    
+    return (
+        txid_bytes +           # 32 bytes
+        vout_bytes +          # 4 bytes
+        script_sig_length +   # 1 byte
+        script_sig +          # variable
+        sequence              # 4 bytes
+    )
+
+def create_output(
+    amount: int,
+    script_pubkey: bytes
+) -> bytes:
+    """Create a transaction output"""
+    # Amount (8 bytes, little-endian)
+    amount_bytes = int_to_little_endian(amount, 8)
+    
+    # Output structure:
+    # 1. Amount (8 bytes)
+    # 2. ScriptPubKey with length prefix
+    output_bytes = (
+        amount_bytes +          # value in satoshis
+        script_pubkey          # includes length prefix
+    )
+    
+    return output_bytes
+
+def int_to_little_endian(value: int, length: int) -> bytes:
+    """Convert an integer to little-endian bytes."""
+    return value.to_bytes(length, 'little')
+
+def varint(n: int) -> bytes:
+    """Encode an integer as a variable length integer."""
+    if n < 0xfd:
+        return bytes([n])
+    elif n <= 0xffff:
+        return b'\\xfd' + n.to_bytes(2, 'little')
+    elif n <= 0xffffffff:
+        return b'\\xfe' + n.to_bytes(4, 'little')
+    else:
+        return b'\\xff' + n.to_bytes(8, 'little')`
+    }}
+/>
