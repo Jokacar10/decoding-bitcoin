@@ -170,7 +170,49 @@ return (
       },
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/71083dbf4f2a"
+  pythonHeight="40rem"
+  pythonCode={`def scriptpubkey_to_asm(script_pub_key_hex):
+    # Convert hex ScriptPubKey to bytes directly
+    script_bytes = bytes.fromhex(script_pub_key_hex)
+
+    # Initialize the ASM representation list
+    asm_script = []
+
+    # Parse the script
+    i = 0
+    while i < len(script_bytes):
+        opcode = script_bytes[i]
+
+        if opcode == 0x76:  # OP_DUP
+            asm_script.append("OP_DUP")
+            i += 1
+        elif opcode == 0xa9:  # OP_HASH160
+            asm_script.append("OP_HASH160")
+            i += 1
+            
+            length = script_bytes[i]  # Get the length of the PubKeyHash
+            i += 1
+            
+            # Check if the length of the PubKeyHash is 20 bytes
+            if length != 20:
+                raise ValueError(f"Invalid PubKeyHash length: {length} (expected 20)")
+            
+            pubkey_hash = script_bytes[i:i + length].hex()
+            asm_script.append(f"{pubkey_hash}")
+            i += length
+        elif opcode == 0x88:  # OP_EQUALVERIFY
+            asm_script.append("OP_EQUALVERIFY")
+            i += 1
+        elif opcode == 0xac:  # OP_CHECKSIG
+            asm_script.append("OP_CHECKSIG")
+            i += 1
+        else:
+            # Handle unknown opcodes (optional)
+            asm_script.append(f"UNKNOWN_OPCODE_{opcode}")
+            i += 1
+
+    # Convert the list to a space-separated string
+    return " ".join(asm_script)`}
 />
 
 <Hint

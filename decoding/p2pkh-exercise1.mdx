@@ -328,7 +328,77 @@ export default P2PKHGame;`
       }
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/1773afc06cd7"
+  pythonHeight="40rem"
+  pythonCode={`
+from p2pkh_exercise import construct_p2pkh_scriptpubkey
+
+# Test data
+public_keys = [
+    '037d91c138583e25b0dbacb2643e5f14a96df6af798b3dcc08d7f7f3b41db614fb',
+    '02f82f8cd17a73ea73538ba86d129254c9ef640babc51b316e089595bb884dbef5'
+]
+
+expected_scriptpubkeys = [
+    '76a91426ae24c8c84af2272dafeca63d554c3c4d561ddd88ac',
+    '76a914e3f624c6cd05acb89000446bd522df426e37d75988ac'
+]
+
+# Test the function
+for i, public_key in enumerate(public_keys):
+    result = construct_p2pkh_scriptpubkey(public_key)
+    print(f"Public Key {i+1}:")
+    print(f"Result:   {result}")
+    print(f"Expected: {expected_scriptpubkeys[i]}")
+    print(f"Correct:  {result == expected_scriptpubkeys[i]}\\n")
+    # Test data
+public_keys = [
+    '037d91c138583e25b0dbacb2643e5f14a96df6af798b3dcc08d7f7f3b41db614fb',
+    '02f82f8cd17a73ea73538ba86d129254c9ef640babc51b316e089595bb884dbef5'
+]
+
+expected_scriptpubkeys = [
+    '76a91426ae24c8c84af2272dafeca63d554c3c4d561ddd88ac',
+    '76a914e3f624c6cd05acb89000446bd522df426e37d75988ac'
+]
+
+# Test the function
+for i, public_key in enumerate(public_keys):
+    result = construct_p2pkh_scriptpubkey(public_key)
+    print(f"Public Key {i+1}:")
+    print(f"Result:   {result}")
+    print(f"Expected: {expected_scriptpubkeys[i]}")
+    print(f"Correct:  {result == expected_scriptpubkeys[i]}\\n")
+    # Test data
+public_keys = [
+    '037d91c138583e25b0dbacb2643e5f14a96df6af798b3dcc08d7f7f3b41db614fb',
+    '02f82f8cd17a73ea73538ba86d129254c9ef640babc51b316e089595bb884dbef5'
+]
+
+expected_scriptpubkeys = [
+    '76a91426ae24c8c84af2272dafeca63d554c3c4d561ddd88ac',
+    '76a914e3f624c6cd05acb89000446bd522df426e37d75988ac'
+]
+
+# Test the function
+for i, public_key in enumerate(public_keys):
+    result = construct_p2pkh_scriptpubkey(public_key)
+    print(f"Public Key {i+1}:")
+    print(f"Result:   {result}")
+    print(f"Expected: {expected_scriptpubkeys[i]}")
+    print(f"Correct:  {result == expected_scriptpubkeys[i]}\\n")`}
+  pythonModules={{
+    "p2pkh_exercise.py": `import hashlib
+
+def construct_p2pkh_scriptpubkey(public_key: str) -> str:
+    # TODO: Implement the P2PKH scriptPubKey construction
+    # The function should take a public key as input and return the P2PKH scriptPubKey in hex format
+    # Steps:
+    # 1. Convert the public key from hex to bytes
+    # 2. Hash the public key using SHA256 and then RIPEMD160
+    # 3. Construct the script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
+    # 4. Return the script as a hex string
+    pass`
+  }}
 />
 
 For this exercise, we've provided the `crypto-js` (JavaScript) and `hashlib` (Python) libraries to help with the hashing operations. You should use the relevant library to implement the P2PKH ScriptPubKey function.

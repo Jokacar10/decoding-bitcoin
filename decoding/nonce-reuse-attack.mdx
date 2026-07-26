@@ -1,11 +1,12 @@
 ---
 title: "Nonce Reuse Attack"
 date: 2024-01-25T15:32:14Z
-lastmod: "2024-07-26"
+lastmod: "2026-07-18"
 draft: false
 category: Taproot
 layout: TopicBanner
-order: 504
+order: 3
+parent: schnorr-signature
 icon: "FaHashtag"
 images:
     [
@@ -13,13 +14,15 @@ images:
     ]
 ---
 
-### What is a Nonce in Digital Signatures?
+The [Schnorr page](/decoding/schnorr-signature) said the nonce $k$ must be fresh for every signature. This page shows exactly what breaks if it is reused: an attacker can recover your private key.
 
-Nonce (short for "number used once") is a random, unique value used in the signing process.
+**TLDR:** Sign two different messages with the same nonce and anyone can compute your private key $d$ with one subtraction and one division.
 
-In Schnorr signatures, each signature requires a fresh nonce. Reusing the same nonce is a dangerous mistake that allows an attacker to calculate your private key.
+## What is a nonce?
 
-Let's start by breaking down the Schnorr signature equation to see how this happens.
+A **nonce** is a "number used once". In Schnorr signing it is the random value $k$.
+
+Each signature needs a new $k$. Reuse it across two signatures and the private key leaks.
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -34,9 +37,17 @@ Let's start by breaking down the Schnorr signature equation to see how this happ
     />
 </div>
 
-If the <span className="text-[#FF6262]">nonce **k**</span> remains the same across different transactions, an attacker can isolate the private key **d** by comparing two signatures.
+## Two signatures, one nonce
 
-Imagine you want to sign two separate transactions but mistakenly use the same nonce for both. Here's how it plays out:
+Recall the Schnorr signature $(R, s)$ from the previous page:
+
+<div className="text-center my-4 text-orange-500">
+  $$\mathbf{s = k + h \cdot d}$$
+</div>
+
+Here $d$ is the private key, $k$ the nonce, and $h$ the challenge hash `tagged_hash("BIP0340/challenge", R || P || m)` reduced mod $n$ (the order of the curve).
+
+The nonce sets the nonce point $R = k \cdot G$. Same $k$ means the same $R$. So two signatures made with one reused nonce carry the **same $R$** in public.
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -51,29 +62,33 @@ Imagine you want to sign two separate transactions but mistakenly use the same n
     />
 </div>
 
+Sign transaction 1 and transaction 2 with the same $k$:
+
 <div className="text-center my-4 text-orange-500">
-  $$\mathbf{S1 = k - h(R, P, tx1) \times d}$$
+  $$\mathbf{s_1 = k + h_1 \cdot d}$$
 </div>
 
 <div className="text-center my-4 text-orange-500">
-  $$\mathbf{S2 = k - h(R, P, tx2) \times d}$$
+  $$\mathbf{s_2 = k + h_2 \cdot d}$$
 </div>
 
-Here’s where things go wrong when the nonce is reused!
+where $h_1 = H(R \, || \, P \, || \, \text{tx}_1)$ and $h_2 = H(R \, || \, P \, || \, \text{tx}_2)$. Only the challenge hash differs. $k$ and $d$ are identical in both lines.
 
-Since the only variable difference between **S1** and **S2** is the hash of the transactions, an attacker can calculate **k** and subsequently derive your private key **d**. This exposes your Bitcoin funds to theft.
+## Recovering the private key
 
----
-
-### 5. Calculating the Private Key from Reused Nonces
-
-With both **S1** and **S2** known, an attacker can use the following equation to isolate **d (private key)**:
+Subtract the two equations. The nonce $k$ cancels:
 
 <div className="text-center my-4 text-orange-500">
-  $$\mathbf{d = \frac{S1 - S2}{h(R, P, tx1) - h(R, P, tx2)}}$$
+  $$\mathbf{s_1 - s_2 = (h_1 - h_2) \cdot d}$$
 </div>
 
-Since all these values are publicly accessible (S1, S2, and the hashed transactions), reusing the nonce makes it trivial to solve for **d**. **This leads to a complete compromise of the private key**.
+Divide to isolate $d$:
+
+<div className="text-center my-4 text-orange-500">
+  $$\mathbf{d = \frac{s_1 - s_2}{h_1 - h_2} \pmod n}$$
+</div>
+
+Every value on the right is public. $s_1$ and $s_2$ sit in the two signatures. $h_1$ and $h_2$ anyone can recompute from $R$, $P$, and the two messages.
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -88,32 +103,189 @@ Since all these values are publicly accessible (S1, S2, and the hashed transacti
     />
 </div>
 
+<ExpandableAlert title="What does 'divide mod n' mean?" type="info" expandable={true} initialLines={1}>
+
+There is no fraction on the curve. Dividing by $h_1 - h_2$ means multiplying by its **modular inverse** mod $n$, the curve order:
+
+`n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141`
+
+$n$ is prime, so every non-zero difference has an inverse. In Python that is `pow(h1 - h2, -1, n)`. As long as the two messages differ, $h_1 - h_2$ is non-zero and the division works.
+
+</ExpandableAlert>
+
+## Try it yourself
+
+Sign two messages with the same nonce, then recover $d$ from the two signatures.
+
+<ExpandableAlert title="Helper code: secp256k1 point math" type="info" expandable={true} initialLines={0}>
+
+```python
+import hashlib
+
+def tagged_hash(tag, data):
+    t = hashlib.sha256(tag.encode()).digest()
+    return hashlib.sha256(t + t + data).digest()
+
+# secp256k1
+p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+     0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
+
+def add(P, Q):
+    if P is None: return Q
+    if Q is None: return P
+    if P[0] == Q[0] and (P[1] + Q[1]) % p == 0: return None
+    if P == Q:
+        lam = (3 * P[0] * P[0]) * pow(2 * P[1], p - 2, p) % p
+    else:
+        lam = (Q[1] - P[1]) * pow(Q[0] - P[0], p - 2, p) % p
+    x = (lam * lam - P[0] - Q[0]) % p
+    return (x, (lam * (P[0] - x) - P[1]) % p)
+
+def mul(k, P=G):
+    R = None
+    while k:
+        if k & 1: R = add(R, P)
+        P = add(P, P)
+        k >>= 1
+    return R
+```
+
+</ExpandableAlert>
+
+### Programming Exercise: Recover a private key from a reused nonce
+
+The helper above goes at the top of your file. Fill in the one line that recovers $d$.
+
+<CodeSnippet
+    language="python"
+    code={`
+# paste the secp256k1 helper above this line
+
+def normalize(scalar):
+    # BIP340: the point must have even Y, so negate the scalar if it does not
+    if mul(scalar)[1] % 2 != 0:
+        return n - scalar
+    return scalar
+
+def sign(d, k, msg):
+    P, R = mul(d), mul(k)
+    h = int.from_bytes(tagged_hash("BIP0340/challenge",
+        R[0].to_bytes(32, "big") + P[0].to_bytes(32, "big") + msg), "big") % n
+    s = (k + h * d) % n
+    return R[0], s, h  # (R.x, s), and the public challenge h
+
+# Alice's private key, and ONE nonce she reuses by mistake
+d = normalize(0xB7E151628AED2A6ABF7158809CF4F3C762E7160F38B4DA56A784D9045190CFEF)
+k = normalize(0x00000000000000000000003B78CE563F89A0ED9414F5AA28AD0D96D6795F9C63)
+
+# Two different transactions, signed with the SAME k
+Rx1, s1, h1 = sign(d, k, b"Alice pays Bob 1 BTC")
+Rx2, s2, h2 = sign(d, k, b"Alice pays Bob 2 BTC")
+assert Rx1 == Rx2  # reused nonce -> identical R.x
+
+# TODO: recover d from (s1, s2, h1, h2) with one subtraction and one division mod n
+d_rec = 0  # <-- your line here
+
+assert d_rec == d
+print("recovered:", hex(d_rec))
+print("Success!")
+`}
+/>
+
+<ExpandableAlert
+    title="Solution code"
+    type="solution"
+    expandable={true}
+    initialLines={0}
+>
+
+```python
+import hashlib
+
+def tagged_hash(tag, data):
+    t = hashlib.sha256(tag.encode()).digest()
+    return hashlib.sha256(t + t + data).digest()
+
+# secp256k1
+p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+     0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
+
+def add(P, Q):
+    if P is None: return Q
+    if Q is None: return P
+    if P[0] == Q[0] and (P[1] + Q[1]) % p == 0: return None
+    if P == Q:
+        lam = (3 * P[0] * P[0]) * pow(2 * P[1], p - 2, p) % p
+    else:
+        lam = (Q[1] - P[1]) * pow(Q[0] - P[0], p - 2, p) % p
+    x = (lam * lam - P[0] - Q[0]) % p
+    return (x, (lam * (P[0] - x) - P[1]) % p)
+
+def mul(k, P=G):
+    R = None
+    while k:
+        if k & 1: R = add(R, P)
+        P = add(P, P)
+        k >>= 1
+    return R
+
+def normalize(scalar):
+    # BIP340: the point must have even Y, so negate the scalar if it does not
+    if mul(scalar)[1] % 2 != 0:
+        return n - scalar
+    return scalar
+
+def sign(d, k, msg):
+    P, R = mul(d), mul(k)
+    h = int.from_bytes(tagged_hash("BIP0340/challenge",
+        R[0].to_bytes(32, "big") + P[0].to_bytes(32, "big") + msg), "big") % n
+    s = (k + h * d) % n
+    return R[0], s, h  # (R.x, s), and the public challenge h
+
+# Alice's private key, and ONE nonce she reuses by mistake
+d = normalize(0xB7E151628AED2A6ABF7158809CF4F3C762E7160F38B4DA56A784D9045190CFEF)
+k = normalize(0x00000000000000000000003B78CE563F89A0ED9414F5AA28AD0D96D6795F9C63)
+
+# Two different transactions, signed with the SAME k
+Rx1, s1, h1 = sign(d, k, b"Alice pays Bob 1 BTC")
+Rx2, s2, h2 = sign(d, k, b"Alice pays Bob 2 BTC")
+assert Rx1 == Rx2  # reused nonce -> identical R.x: the public giveaway
+
+# Attacker recomputes h1, h2 from public data (R.x, P.x, message),
+# then subtracts and divides mod n:
+d_rec = (s1 - s2) * pow(h1 - h2, -1, n) % n
+assert d_rec == d
+
+# The nonce falls out too: k = s1 - h1*d
+k_rec = (s1 - h1 * d_rec) % n
+assert k_rec == k
+
+print("recovered private key:", hex(d_rec))
+print("Success!")
+```
+
+</ExpandableAlert>
+
+## How to avoid it
+
+The rule is short: **never sign two messages with the same nonce.**
+
+You do not do this by hand. BIP340 derives $k$ deterministically from the private key **and** the message:
+
+`rand = tagged_hash("BIP0340/nonce", t || P || m)`, then `k = int(rand) mod n`. Here $t$ is the private key masked with auxiliary randomness.
+
+Different message, different $k$. A correct signer never repeats a nonce, even with a broken random number generator.
+
+<ExpandableAlert title="Deterministic nonces are not enough for multisig" type="warning" expandable={true} initialLines={1}>
+
+The BIP340 derivation is safe for a single signer. It is **insecure** for multi-party signing: cosigners who share an aggregate key can be tricked into states that reuse a nonce, and the same subtraction recovers a share of the key. Multisig protocols need nonces built to resist this. That is the problem [MuSig](/decoding/musig) solves.
+
+</ExpandableAlert>
+
+Sharing one key across several signers makes nonces harder still. Next: [MuSig](/decoding/musig).
+
 ---
-
-### 6. How to Prevent Nonce Reuse Attacks
-
-The solution is straightforward:
-
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!  
-Never reuse a nonce!
-
-Always ensure that your cryptographic library generates a unique, random nonce for each signature.
-
----
-
-### 7. Final Warning: Don’t Reuse Nonces!
-
-To safeguard your Bitcoin, remember:
-
-**DON’T REUSE NONCES**
-
-This simple rule keeps your private key secure and your transactions safe from attackers.

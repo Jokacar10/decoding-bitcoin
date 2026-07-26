@@ -220,7 +220,35 @@ export default App;
       },
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/be49ab05f3a3"
+  pythonHeight="36rem"
+  pythonCode={`def decode_number(hex_string: str) -> int:
+    # Convert the hex string to bytes
+    element = bytes.fromhex(hex_string)
+
+    # Check for empty input
+    if len(element) == 0:
+        return 0
+
+    # Reverse the bytes to convert from little-endian to big-endian
+    big_endian = element[::-1]
+    
+    # Initialize result and check if the number is negative
+    result = 0
+    negative = big_endian[0] & 0x80
+    
+    # Set the initial result based on the sign
+    if negative:
+        result = big_endian[0] & 0x7F  # Use the absolute value for negative
+    else:
+        result = big_endian[0]
+
+    # Build the result from the remaining bytes
+    for i in range(1, len(big_endian)):
+        result <<= 8
+        result += big_endian[i]
+
+    # Return the final result, negating if it's negative
+    return -result if negative else result`}
 />
 
 <Hint

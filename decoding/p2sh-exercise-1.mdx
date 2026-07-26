@@ -315,7 +315,32 @@ export default P2SHGame;`
       }
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/9d0aa927edf2"
+  pythonHeight="18rem"
+  pythonCode={`from p2sh_exercise import construct_p2sh_scriptpubkey
+
+# Test data
+redeem_script = "52 53 93 55 87"  # 2 3 ADD 5 EQUAL in hex
+expected_scriptpubkey = "a9144254e2a76ec94641c2d3e4b5528bbb30a350838c87"
+
+# Test the function
+result = construct_p2sh_scriptpubkey(redeem_script)
+print(f"Redeem Script: {redeem_script}")
+print(f"Result:   {result}")
+print(f"Expected: {expected_scriptpubkey}")
+print(f"Correct:  {result == expected_scriptpubkey}")`}
+  pythonModules={{
+    "p2sh_exercise.py": `import hashlib
+
+def construct_p2sh_scriptpubkey(redeem_script: str) -> str:
+    # TODO: Implement the P2SH scriptPubKey construction
+    # The function should take a redeem script as input and return the P2SH scriptPubKey in hex format
+    # Steps:
+    # 1. Convert the redeem script from hex string to bytes (remember to remove spaces)
+    # 2. Hash the redeem script using SHA256 and then RIPEMD160
+    # 3. Construct the P2SH script: OP_HASH160 <redeemScriptHash> OP_EQUAL
+    # 4. Return the script as a hex string
+    pass`
+  }}
 />
 
 For this exercise, we've provided the `crypto-js` (JavaScript) and `hashlib` (Python) libraries to help with the hashing operations. You should use the relevant library to implement the P2SH ScriptPubKey function.

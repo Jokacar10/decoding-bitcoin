@@ -283,7 +283,73 @@ export default App;
       },
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/d749a38ca9ee"
+  pythonHeight="40rem"
+  pythonCode={`import struct
+
+class OpCode:
+    OP_PUSHDATA1 = 0x4c
+    OP_PUSHDATA2 = 0x4d
+    OP_PUSHDATA4 = 0x4e
+
+OP_CODE_NAMES = {
+    0x00: 'OP_0',
+    0x51: 'OP_1',
+    0x52: 'OP_2',
+    0x53: 'OP_3',
+    0x54: 'OP_4',
+    0x55: 'OP_5',
+    0x56: 'OP_6',
+    0x57: 'OP_7',
+    0x58: 'OP_8',
+    0x59: 'OP_9',
+    0x5a: 'OP_10',
+    # Add other opcode mappings as necessary
+}
+
+def parse_script(script_hex: str):
+    # Remove '0x' prefix if it exists and convert hex string to bytes
+    script = bytes.fromhex(script_hex.replace('0x', ''))
+    parsed_script = []
+    offset = 0
+
+    while offset < len(script):
+        opcode = script[offset]
+        offset += 1
+
+        if 0x01 <= opcode <= 0x4b:
+            # Data push of opcode bytes
+            data_length = opcode
+            data = script[offset:offset + data_length]
+            parsed_script.append({'type': 'data', 'value': data.hex()})
+            offset += data_length
+
+        elif opcode == OpCode.OP_PUSHDATA1:
+            data_length = script[offset]
+            offset += 1
+            data = script[offset:offset + data_length]
+            parsed_script.append({'type': 'data', 'value': data.hex()})
+            offset += data_length
+
+        elif opcode == OpCode.OP_PUSHDATA2:
+            data_length = struct.unpack('<H', script[offset:offset + 2])[0]  # Read 2 bytes as little-endian unsigned short
+            offset += 2
+            data = script[offset:offset + data_length]
+            parsed_script.append({'type': 'data', 'value': data.hex()})
+            offset += data_length
+
+        elif opcode == OpCode.OP_PUSHDATA4:
+            data_length = struct.unpack('<I', script[offset:offset + 4])[0]  # Read 4 bytes as little-endian unsigned int
+            offset += 4
+            data = script[offset:offset + data_length]
+            parsed_script.append({'type': 'data', 'value': data.hex()})
+            offset += data_length
+
+        else:
+            # Opcode
+            opcode_name = OP_CODE_NAMES.get(opcode, f'UNKNOWN_{opcode:02x}')
+            parsed_script.append({'type': 'opcode', 'value': opcode_name})
+
+    return parsed_script`}
 />
 
 ## Hints

@@ -86,19 +86,46 @@ Alice generates a private key `d`, then calculates her public key `P` by multipl
 
 To see this in action, run the following code to generate Alice's key pair and display the private and public keys.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/09ee88406bf6"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(30vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="18rem"
+    code={`# main.py
+from key import generate_key_pair
+
+# Step 1: Generate Key Pair (d, P)
+d, P = generate_key_pair()
+
+# Display the results
+print(f"Private Key (d): {d}")
+print(f"\\n")
+print(f"Public Key (P): {P}")`}
+    modules={{
+        "key.py": `# key_pair.py
+import random
+from hashlib import sha256
+
+SECP256K1_FIELD_SIZE = 2**256 - 2**32 - 977
+SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+SECP256K1_G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+               0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8, 1)
+
+class ECKey:
+    def __init__(self, secret=None, compressed=True):
+        self.compressed = compressed
+        if secret:
+            self.secret = secret
+        else:
+            self.secret = random.randrange(1, SECP256K1_ORDER)
+
+    def get_pubkey(self):
+        # Placeholder for the actual multiplication (example only)
+        return SECP256K1_G  # This should use elliptic curve math for the true public key
+
+def generate_key_pair(secret=None, compressed=True):
+    d = ECKey(secret, compressed)
+    P = d.get_pubkey()
+    return d.secret, P`
+    }}
+/>
 
 ### Step 2: Generate Nonce and Nonce Commitment (k, R)
 
@@ -170,19 +197,141 @@ Let’s generate a random nonce `k` and calculate its associated point `R`.
 
 This example shows how to check if `R`'s y-coordinate (and its negative, `-y`) is even or odd, which is crucial for Taproot’s nonce requirements.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/c0c1a7ad7e3e"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(50vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="26rem"
+    code={`# main.py
+from key import generate_key_pair, SECP256K1_FIELD_SIZE
+
+# Generate a random value and its associated curve point
+k, R = generate_key_pair()
+
+# Find y and -y
+y = R.get_y()
+minus_y = SECP256K1_FIELD_SIZE - y
+print("y = {}".format(y))
+print("-y = {}\\n".format(minus_y))
+
+# One of y and -y will be even and the other will be odd
+print("y is {}".format("odd" if y % 2 else "even"))
+print("-y is {}\\n".format("odd" if minus_y % 2 else "even"))
+
+print("k is {}a valid nonce".format("" if y % 2 == 0 else "not "))
+print("-k is {}a valid nonce".format("" if minus_y % 2 == 0 else "not "))`}
+    modules={{
+        "key.py": `# key_pair.py
+import random
+import hashlib
+
+SECP256K1_FIELD_SIZE = 2**256 - 2**32 - 977
+SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+SECP256K1_G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+               0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8, 1)
+
+def modinv(a, n):
+    """Compute the modular inverse of a modulo n."""
+    t1, t2 = 0, 1
+    r1, r2 = n, a
+    while r2 != 0:
+        q = r1 // r2
+        t1, t2 = t2, t1 - q * t2
+        r1, r2 = r2, r1 - q * r2
+    if r1 > 1:
+        return None
+    if t1 < 0:
+        t1 += n
+    return t1
+
+class EllipticCurve:
+    def __init__(self, p, a, b):
+        """Initialize elliptic curve y^2 = x^3 + a*x + b over GF(p)."""
+        self.p = p
+        self.a = a % p
+        self.b = b % p
+
+    def add(self, p1, p2):
+        """Add two points on the elliptic curve."""
+        x1, y1, z1 = p1
+        x2, y2, z2 = p2
+        if z1 == 0:
+            return p2
+        if z2 == 0:
+            return p1
+        if x1 == x2 and y1 == y2:
+            return self.double(p1)
+        h = (x2 - x1) % self.p
+        r = (y2 - y1) % self.p
+        h2 = (h * h) % self.p
+        h3 = (h * h2) % self.p
+        x3 = (r * r - h3 - 2 * x1 * h2) % self.p
+        y3 = (r * (x1 * h2 - x3) - y1 * h3) % self.p
+        z3 = (z1 * h) % self.p
+        return (x3, y3, z3)
+
+    def double(self, p1):
+        """Double a point on the elliptic curve."""
+        x1, y1, z1 = p1
+        y1_2 = (y1**2) % self.p
+        s = (4 * x1 * y1_2) % self.p
+        m = 3 * x1 * x1 % self.p
+        x2 = (m * m - 2 * s) % self.p
+        y2 = (m * (s - x2) - 8 * y1_2 * y1_2) % self.p
+        z2 = 2 * y1 * z1 % self.p
+        return (x2, y2, z2)
+
+    def mul(self, point, scalar):
+        """Perform scalar multiplication of a point."""
+        result = (0, 1, 0)
+        addend = point
+
+        for bit in range(256):
+            if (scalar >> bit) & 1:
+                result = self.add(result, addend)
+            addend = self.double(addend)
+
+        return result
+
+    def affine(self, p1):
+        """Convert a Jacobian point tuple to affine form."""
+        x1, y1, z1 = p1
+        if z1 == 0:
+            return None
+        inv = modinv(z1, self.p)
+        x = (x1 * inv * inv) % self.p
+        y = (y1 * inv * inv * inv) % self.p
+        return (x, y)
+
+SECP256K1 = EllipticCurve(SECP256K1_FIELD_SIZE, 0, 7)
+
+class ECPubKey():
+    """A secp256k1 public key"""
+
+    def __init__(self, point=None):
+        self.p = point
+        self.valid = point is not None
+
+    def get_y(self):
+        """Retrieve the y-coordinate in affine coordinates."""
+        return SECP256K1.affine(self.p)[1]
+
+class ECKey():
+    """A secp256k1 private key"""
+
+    def __init__(self, secret=None):
+        self.secret = secret or random.randrange(1, SECP256K1_ORDER)
+        self.valid = self.secret > 0 and self.secret < SECP256K1_ORDER
+
+    def get_pubkey(self):
+        """Compute an ECPubKey object for this private key."""
+        p = SECP256K1.mul(SECP256K1_G, self.secret)
+        return ECPubKey(p)
+
+def generate_key_pair():
+    """Generate a random private key and its associated public key."""
+    d = ECKey()
+    P = d.get_pubkey()
+    return d, P`
+    }}
+/>
 
 ### Step 3: Challenge Computation (h)
 
@@ -226,19 +375,58 @@ Below is a code snippet that generates a Schnorr signature, but some key parts a
 
 > **Note:** You'll see a method called `tagged_hash` in the code. If you're unfamiliar with tagged hashes and their purpose, refer to our previous topic on [Tagged Hashes](/decoding/tagged-hashes) for a quick refresher.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/db6d88d9c916"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(75vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    preset="bitcoinutils"
+    code={`# main.py
+from key import generate_key_pair, ECKey, SECP256K1_FIELD_SIZE
+from script import tagged_hash, sha256
+
+msg = sha256(b'message')
+
+# Generate a private/public key pair
+d, P = generate_key_pair()
+
+# Check that public key point has an even Y-coordinate.
+# If not, negate d and P.
+if # TODO: implement
+    d.negate()
+    P.negate()
+
+# Generate a nonce scalar and associated nonce point
+k, R = generate_key_pair()
+
+# Check that nonce point has an even Y-coordinate.
+# If not, negate k
+if # TODO: implement
+    k.negate()
+# Note that there is no need to negate R, since we only use the x value of R below
+
+# Generate s = k + hash(R_x|P_x|msg) * d
+# Method: tagged_hash("BIP0340/challenge", bytes) will give you the byte digest tagged hash of the challenge data.
+# Turn that digest into a ECKey object called h, and then set s = k + h * d
+# Note that ECPubKey.get_bytes() will return the bip340 encoding of a public key which is equivalent 
+# to its x-coordinate
+R_x_bytes = R.get_bytes()
+P_bytes = P.get_bytes()
+h_bytes = # TODO: implement
+h = ECKey().set(h_bytes)
+s = k + h * d
+
+print("R: {}".format(R))
+print("s: {}\\n".format(s.get_bytes().hex()))
+
+# Generate sig = R_x|s
+# Method: get the x bytes from R and concatenate with the secret bytes from s
+sig = # TODO: implement
+
+print("Signature: {}\\n".format(sig.hex()))
+
+# Verify the signature
+assert P.verify_schnorr(sig, msg)
+
+print("Success!")`}
+/>
 
 <ExpandableAlert
     title="Solution code"
@@ -348,19 +536,66 @@ To avoid this risk, BIP340 suggests a deterministic method for generating nonces
 To better understand how nonce generation works, try creating a Schnorr signature using BIP340’s nonce scheme. Follow the instructions in the code snippet below to implement the nonce generation steps yourself.
 
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/8c6d20f8fdcd"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(75vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="40rem"
+    preset="bitcoinutils"
+    code={`# main.py
+from key import generate_key_pair, generate_bip340_key_pair, ECKey, SECP256K1_FIELD_SIZE
+from script import tagged_hash, sha256
+
+
+msg = sha256(b'message')
+aux = sha256(b'random auxiliary data')
+
+# Generate a valid BIP340 priv-pub key pair using the convenience function \`generate_bip340_key_pair\`
+d, P = generate_bip340_key_pair()
+print("message = {}".format(msg.hex()))
+print("pubkey = {}\\n".format(P.get_bytes().hex()))
+
+# t is the byte-wise xor of bytes(d) and tagged_hash("BIP0340/aux", aux)
+t = (d.secret ^ int.from_bytes(tagged_hash("BIP0340/aux", aux), 'big')).to_bytes(32, 'big')
+rand = tagged_hash("BIP0340/nonce", t + P.get_bytes() + msg)
+
+# Generate the nonce value k and get the nonce point R
+k, R = generate_key_pair(rand)
+
+# Check that nonce has an even y coordinate
+# If not, negate k
+if # TODO: implement
+    k.negate()
+
+print("nonce: {}".format(k))
+print("nonce point: {}\\n".format(R))
+
+# Generate s = k + tagged_hash("BIP0340/challenge", R_x|P_x|msg) * d
+# Method: tagged_hash("BIP0340/challenge", bytes) will give you the byte digest
+# Turn that digest into a ECKey object called h, and then set s = k + h * d
+R_x_bytes = R.get_bytes()
+P_bytes = P.get_bytes()
+h_bytes =  # TODO: implement
+h = ECKey().set(h_bytes)
+s = k + h * d
+
+print("R: {}".format(R))
+print("s: {}\\n".format(s.get_bytes().hex()))
+
+# Generate sig = R_x|s
+# Method: get the x bytes from R and concatenate with the secret bytes from s
+sig = # TODO: implement
+
+print("Signature: {}\\n".format(sig.hex()))
+
+# Generate a signature using the ECKey.sign_schnorr(msg) method
+# This generates the nonce deterministically, so should return the same signature
+sig2 = d.sign_schnorr(msg, aux)
+
+# Verify and compare signature(s)
+assert P.verify_schnorr(sig, msg)
+assert P.verify_schnorr(sig2, msg)
+assert sig == sig2
+
+print("Success!")`}
+/>
 
 <ExpandableAlert
     title="Solution code"

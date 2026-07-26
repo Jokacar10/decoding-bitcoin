@@ -351,7 +351,57 @@ export default App;
       },
     }
   }}
-  trinketUrl="https://trinket.io/embed/python3/208f82ef7e4f"
+  pythonHeight="40rem"
+  pythonPreset="bitcoinutils"
+  pythonCode={`from hashlib import sha256
+from key import ECKey, ECPubKey
+
+def op_checksig(stack, get_message_hash):
+    if len(stack) < 2:
+        raise ValueError("Insufficient items for OP_CHECKSIG")
+
+    signature_buffer = stack.pop()
+    pub_key_buffer = stack.pop()
+
+    try:
+        # Load the public key from its serialized (SEC) bytes
+        pub_key = ECPubKey().set(pub_key_buffer)
+
+        # Remove the last byte (the SIGHASH type) from the signature
+        signature = signature_buffer[:-1]
+
+        # Get the message hash to verify the signature against
+        message_hash = get_message_hash()
+
+        # Verify the DER-encoded ECDSA signature
+        is_valid = pub_key.verify_ecdsa(signature, message_hash)
+
+        # Push 0x01 for a valid signature and 0x00 for an invalid one
+        stack.append(bytes([0x01]) if is_valid else bytes([0x00]))
+
+    except Exception as error:
+        print("Error in OP_CHECKSIG:", error)
+        stack.append(bytes([0x00]))
+
+
+# --- Try it out with a real signature ---------------------------------------
+# Build a key pair, sign a message hash, and run it through OP_CHECKSIG.
+priv = ECKey().set(sha256(b"op_checksig demo key").digest(), compressed=True)
+pub = priv.get_pubkey()
+
+message_hash = sha256(b"a bitcoin transaction").digest()
+signature = priv.sign_ecdsa(message_hash) + bytes([0x01])  # append SIGHASH_ALL
+
+# This op_checksig pops the signature first, then the public key, so the
+# signature sits on top of the stack: [<pubkey>, <signature>].
+stack = [pub.get_bytes(bip340=False), signature]
+op_checksig(stack, lambda: message_hash)
+print("Valid signature accepted:", stack.pop() == bytes([0x01]))
+
+# A tampered message must be rejected
+stack = [pub.get_bytes(bip340=False), signature]
+op_checksig(stack, lambda: sha256(b"a different transaction").digest())
+print("Tampered message rejected:", stack.pop() == bytes([0x00]))`}
 />
 ## Hints
 

@@ -108,18 +108,49 @@ Let's now test our implementation against the BIP143 test vectors.
 
 If you check the <a href="https://github.com/bitcoin/bips/blob/58ffd93812ff25e87d53d1f202fbb389fdfb85bb/bip-0143.mediawiki?plain=1#L182" target="_blank">official BIP143 proposal</a>, you'll find that the scriptCode we generate matches exactly with the test vectors provided there.
 
-<div className="flex justify-center items-center w-full full-width">
-    <iframe
-        src="https://trinket.io/embed/python3/f9e3ebfe8850"
-        width="100%"
-        height="100%"
-        style={{
-            border: "none",
-            margin: 0
-        }}
-        allowFullScreen
-        className="rounded-md shadow-sm h-[calc(50vh)]"
-    ></iframe>
-</div>
+<PythonPlayground
+    height="31rem"
+    code={`from script_code import get_p2wpkh_scriptcode
+
+def test_p2wpkh_scriptcode():
+    # P2WPKH scriptPubKey from our example transaction
+    script_pubkey = bytes.fromhex('00141d0f172a0ecb48aee1be1f2687d2963ae33f71a1')
+    
+    # Generate scriptCode
+    script_code = get_p2wpkh_scriptcode(script_pubkey)
+    
+    # Expected scriptCode from BIP143 test vector
+    expected = bytes.fromhex('1976a9141d0f172a0ecb48aee1be1f2687d2963ae33f71a188ac')
+    
+    assert script_code == expected, "ScriptCode does not match BIP143 test vector"
+    print("Success! \\nScriptCode matches BIP143 test vector")
+    print("______________________________________\\n\\n")
+    
+    # Print details for verification
+    print(f"Input scriptPubKey: {script_pubkey.hex()}")
+    print(f"Generated scriptCode: {script_code.hex()}")
+    print(f"Expected scriptCode: {expected.hex()}")
+    
+    
+if __name__ == "__main__":
+    test_p2wpkh_scriptcode()`}
+    modules={{
+        "script_code.py": `def get_p2wpkh_scriptcode(script_pubkey: bytes) -> bytes:
+    """
+    Convert P2WPKH scriptPubKey to scriptCode for signing.
+    
+    Args:
+        script_pubkey: The P2WPKH scriptPubKey (00{14}{20-byte-hash})
+        
+    Returns:
+        The scriptCode for signing (1976a914{20-byte-hash}88ac)
+    """
+    if not script_pubkey.startswith(b'\\x00\\x14'):
+        raise ValueError("Not a P2WPKH scriptPubKey")
+        
+    pubkey_hash = script_pubkey[2:]  # Skip witness version and push
+    return bytes.fromhex('1976a914') + pubkey_hash + bytes.fromhex('88ac')`
+    }}
+/>
 
 **Next Step:** With the scriptCode ready, we can move on to calculating the transaction digest components (hashPrevouts, hashSequence, hashOutputs) required by BIP143.
