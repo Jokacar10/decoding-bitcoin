@@ -1,0 +1,63 @@
+---
+title: "Key-path Taproot"
+date: 2026-07-25T00:00:00Z
+lastmod: "2026-07-25"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 514
+icon: "FaKey"
+children:
+    - taproot-tweak
+    - taproot-address
+    - spending-key-path
+    - key-path-exercises
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+Recall taproot has two ways to spend, the **key path** and the **script path**. Let's focus on the key path. It's the easy, straightforward one. We cover the script path in the next chapter.
+
+Back in Pay to Taproot we ended with a tweaked key:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \times G$$
+</div>
+
+and we said the tweak is a hash:
+
+<div className="text-center my-4 text-orange-500">
+  $$t = \text{hash}(P \, || \, \text{data})$$
+</div>
+
+so:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + \text{hash}(P \, || \, \text{data}) \times G$$
+</div>
+
+There are two things in this equation to pin down.
+
+## First: the data
+
+The data will be a merkle root later, which we cover in the next chapter (the script tree). We're not interested in it for the moment, so **for now the data is empty**. With no data, the tweak is just:
+
+<div className="text-center my-4 text-orange-500">
+  $$t = \text{hash}(P)$$
+</div>
+
+We only want a taproot output we can spend with a public key (key spend). We spend it by signing with the tweaked private key $x + t$, like a normal single-key output.
+
+## Second: the hash
+
+Look at the hash we use for the tweak, $t = \text{hash}(P \, || \, \text{data})$. In Pay to Taproot we hashed with plain sha256 ($\text{hash} = \text{sha256}$).
+
+Taproot does not. It uses the **tagged hash** we met in Schnorr & BIP340. So our tweaked key is:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + \text{taggedhash}(P \, || \, \text{data}) \times G$$
+</div>
+
+Next we build this tweak in full.

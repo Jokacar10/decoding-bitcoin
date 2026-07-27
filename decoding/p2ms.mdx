@@ -63,18 +63,13 @@ Remember this:
 
 To create a raw P2MS script, include the following in the ScriptPubKey:
 
-<CodeSnippet
-    code={` 
-M
+<ScriptBlock
+    code={`M
 <PubKey1>
 <PubKey2>
 <PubKeyN>
 N
-OP_CHECKMULTISIG
-  `}
-    language="text"
-    showLineNumbers={true}
-    highlightLines={[2, 6]}
+OP_CHECKMULTISIG`}
 />
 
 -   **M**: Number of required signatures

@@ -1,12 +1,12 @@
 ---
-title: "Nonce Reuse Attack"
+title: "Nonce Reuse"
 date: 2024-01-25T15:32:14Z
 lastmod: "2026-07-18"
 draft: false
 category: Taproot
 layout: TopicBanner
-order: 3
-parent: schnorr-signature
+order: 512
+parent: "schnorr-bip340"
 icon: "FaHashtag"
 images:
     [
@@ -112,6 +112,19 @@ There is no fraction on the curve. Dividing by $h_1 - h_2$ means multiplying by 
 $n$ is prime, so every non-zero difference has an inverse. In Python that is `pow(h1 - h2, -1, n)`. As long as the two messages differ, $h_1 - h_2$ is non-zero and the division works.
 
 </ExpandableAlert>
+
+---
+
+### The real world
+
+This is not hypothetical.
+
+-   **Android, August 2013.** A flaw in `SecureRandom` made wallets repeat nonces. Coins were stolen from real addresses.
+-   **Sony PlayStation 3.** Sony shipped a _fixed_ `k` in its ECDSA signing. The same subtraction gave attackers the console's signing key.
+
+Same equation both times. A "number used once" used twice.
+
+---
 
 ## Try it yourself
 
@@ -280,12 +293,16 @@ You do not do this by hand. BIP340 derives $k$ deterministically from the privat
 
 Different message, different $k$. A correct signer never repeats a nonce, even with a broken random number generator.
 
+This is the same `aux_rand` derivation you implemented in the Schnorr lesson. Every P2TR spend your wallet makes goes through it.
+
 <ExpandableAlert title="Deterministic nonces are not enough for multisig" type="warning" expandable={true} initialLines={1}>
 
-The BIP340 derivation is safe for a single signer. It is **insecure** for multi-party signing: cosigners who share an aggregate key can be tricked into states that reuse a nonce, and the same subtraction recovers a share of the key. Multisig protocols need nonces built to resist this. That is the problem [MuSig](/decoding/musig) solves.
+The BIP340 derivation is safe for a single signer. It is **insecure** for multi-party signing: cosigners who share an aggregate key can be tricked into states that reuse a nonce, and the same subtraction recovers a share of the key. Multisig protocols need nonces built to resist this. That is the problem [MuSig2](/decoding/musig) solves, at the end of this module.
 
 </ExpandableAlert>
 
-Sharing one key across several signers makes nonces harder still. Next: [MuSig](/decoding/musig).
+That's the last of the BIP340 primitives. You now have all four: tagged hashes, x-only public keys, Schnorr signatures, and nonces.
+
+Next we start building Taproot on top of them, beginning with [The Taproot Tweak](/decoding/taproot-tweak).
 
 ---

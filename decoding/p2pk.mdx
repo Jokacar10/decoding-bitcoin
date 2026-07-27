@@ -69,12 +69,7 @@ the ScriptPubKey**.
 
     **ScriptPubKey**: A P2PK locking script looks like this:
 
-<CodeSnippet
-    code={` 
-  <Public key Finney> OP_CHECKSIG
-  `}
-    language="text"
-/>
+<ScriptBlock code="<Public key Finney> OP_CHECKSIG" />
 
 Click on **Output 1** of the transaction below to view the scriptPubKey that Satoshi used to lock 10 BTC to Finney's public key and see this in action.
 
@@ -144,12 +139,7 @@ It processes commands from left to right and is intentionally designed to be non
 
 When validating a transaction, the ScriptSig and ScriptPubKey are combined. This concatenated script looks something like this:
 
-<CodeSnippet
-    code={` 
-    <signature Finney> <public key Finney> OP_CHECKSIG
-  `}
-    language="text"
-/>
+<ScriptBlock code="<signature Finney> <public key Finney> OP_CHECKSIG" />
 
 The combined script will validate if the signature is valid, but fail if the signature is invalid.
 

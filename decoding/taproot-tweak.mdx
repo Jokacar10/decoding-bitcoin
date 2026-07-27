@@ -1,0 +1,106 @@
+---
+title: "The Taproot Tweak"
+date: 2026-07-25T00:00:00Z
+lastmod: "2026-07-25"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 515
+icon: "FaExchangeAlt"
+parent: "key-path-taproot"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+Until now we went from a tweaked key that looks like
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \times G = P + \text{hash}(P \, || \, \text{data}) \times G$$
+</div>
+
+into
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + \text{taggedhash}(P) \times G$$
+</div>
+
+And from the [Tagged Hashes](/decoding/tagged-hashes) lesson we know that
+
+<div className="text-center my-4 text-orange-500">
+  $$\text{tagged\_hash}(\text{tagName}, P) = \text{sha256}(\text{sha256}(\text{tagName}) \, || \, \text{sha256}(\text{tagName}) \, || \, P)$$
+</div>
+
+We need now the tag we use for the tweak.
+
+The tag we use for the tweak is **"TapTweak"**.
+
+So our tweak becomes:
+
+<div className="text-center my-4 text-orange-500">
+  $$t = \text{tagged\_hash}(\text{"TapTweak"}, P)$$
+</div>
+
+<ExpandableAlert title="Why a tagged hash again?" type="info">
+Remember the reason we use a tagged hash: it lets us hash the same data in different contexts and get different results. Here we hash $P$ with the tag "TapTweak". If we hashed the same $P$ with another tag like "TapTweak2", we would get a completely different result.
+</ExpandableAlert>
+
+So we end up with the final tweaked key $Q$:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + \text{sha256}(\text{sha256}(\text{"TapTweak"}) \, || \, \text{sha256}(\text{"TapTweak"}) \, || \, P) \times G$$
+</div>
+
+## Code
+
+Let's do an exercise. We take an internal public key $P$ and compute the tweaked key $Q$.
+
+Steps:
+
+-   generate a private key $x$ and its public key $P = x \times G$
+-   calculate the tweak $t = \text{tagged\_hash}(\text{"TapTweak"}, P)$
+-   compute $Q = P + t \times G$
+-   assert $Q == (x + t) \times G$
+
+<PythonPlayground
+    preset="schnorr"
+    height="24rem"
+    code={`import hashlib
+from secp256k1 import add, mul, n
+
+def tagged_hash(tag, msg):
+    d = hashlib.sha256(tag).digest()
+    return hashlib.sha256(d + d + msg).digest()
+
+x = 0xb7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef  # internal private key
+P = mul(x)          # internal public key   P = x*G
+
+# TODO: compute the tweak t (an int mod n) from tagged_hash("TapTweak", P)
+# TODO: compute the tweaked key    Q = P + t*G
+
+assert Q == mul((x + t) % n)              # the tweaked keypair matches
+print("Success! Q = P + t*G")
+`}
+/>
+
+<Hint
+    hints={[
+        "tagged_hash needs bytes. Hash P's x-coordinate: P[0].to_bytes(32, 'big'). (This is the x-only form from the X-only Public Keys lesson.)",
+        "Turn the digest into a scalar mod n, then Q = add(P, mul(t))."
+    ]}
+/>
+
+<ExpandableAlert
+    title="Solution code"
+    type="solution"
+    expandable={true}
+    initialLines={0}
+>
+```python
+t = int.from_bytes(tagged_hash(b"TapTweak", P[0].to_bytes(32, "big")), "big") % n
+Q = add(P, mul(t))     # Q = P + t*G
+```
+</ExpandableAlert>
+
+You may have noticed the hint: we hashed only $P$'s x-coordinate, 32 bytes. That is not an accident. It is the x-only form we covered in [X-only Public Keys](/decoding/x-only-public-keys).

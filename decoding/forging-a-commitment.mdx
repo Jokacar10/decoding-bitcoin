@@ -1,0 +1,135 @@
+---
+title: "Exercise"
+date: 2026-07-24T00:00:00Z
+lastmod: "2026-07-24"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 505
+icon: "FaUserSecret"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+You'll build the commitment yourself, then break it.
+
+Everything runs on a small helper module, `secp256k1.py`. No installs.
+
+```python
+from secp256k1 import *
+
+# point_mul(k)        -> k·G
+# point_add(A, B)     -> A + B
+# hash_to_int(*parts) -> hash of the parts, as a scalar
+# ser(P)              -> P as 32 bytes
+```
+
+---
+
+## Task 1: Build the commitment
+
+Alice has a private key `d` and a contract. Compute the tweaked key Q.
+
+<PythonPlayground
+    preset="secp256k1"
+    height="22rem"
+    code={`from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+
+contract = "Alice agrees to pay 10 BTC to Bob"
+
+# TODO: t = hash of the contract
+t = ...
+
+# TODO: Q = P + t·G
+Q = ...
+
+print("Q =", ser(Q).hex())
+`}
+/>
+
+## Task 2: Check Alice can spend
+
+If Q is a real public key, some private key must unlock it. Which one?
+
+<PythonPlayground
+    preset="secp256k1"
+    height="22rem"
+    code={`from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+contract = "Alice agrees to pay 10 BTC to Bob"
+t = hash_to_int(contract)
+Q = point_add(P, point_mul(t))          # from Task 1
+
+# TODO: what private key corresponds to Q ?
+d_tweaked = ...
+
+assert point_mul(d_tweaked) == Q
+print("Alice can spend from Q")
+`}
+/>
+
+## Task 3: Forge it
+
+Now the attack. Alice wants a second contract that gives the **same** Q.
+
+<PythonPlayground
+    preset="secp256k1"
+    height="26rem"
+    code={`from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+contract = "Alice agrees to pay 10 BTC to Bob"
+t = hash_to_int(contract)
+Q = point_add(P, point_mul(t))          # from Task 1
+
+contract2 = "Alice agrees to pay 0.1 BTC to Bob"
+t2 = hash_to_int(contract2)
+
+# TODO: pick a new private key d2 so that (d2 + t2)·G == Q
+d2 = ...
+
+P2 = point_mul(d2)
+Q2 = point_add(P2, point_mul(t2))
+
+assert Q2 == Q
+assert P2 != P
+print("Same Q, different contract. The commitment is broken.")
+`}
+/>
+
+If your asserts pass, you just opened one Q to two different contracts.
+
+<ExpandableAlert
+    title="Solution code"
+    type="solution"
+    expandable={true}
+    initialLines={0}
+>
+```python
+# Task 1
+t = hash_to_int(contract)
+Q = point_add(P, point_mul(t))
+
+# Task 2
+d_tweaked = (d + t) % N
+
+# Task 3
+d2 = (d + t - t2) % N
+```
+
+Task 3 is just the algebra from the lesson: you need `d2 + t2 = d + t`, so `d2 = d + t − t2`.
+</ExpandableAlert>
+
+## Question
+
+Alice never touched Q. She only changed her own key.
+
+Why was that enough?

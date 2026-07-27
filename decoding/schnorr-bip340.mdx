@@ -1,0 +1,62 @@
+---
+title: "Schnorr & BIP340"
+date: 2026-07-27T00:00:00Z
+lastmod: "2026-07-27"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 508
+icon: "FaSignature"
+children:
+    - tagged-hashes
+    - x-only-public-keys
+    - schnorr-signature
+    - nonce-reuse-attack
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/schnorr-signature-thumbnail.png"
+    ]
+---
+
+We just built a commitment:
+
+<ScriptBlock code={`Q = P + hash(P || contract)·G`} />
+
+The idea is done. But nothing in it is real Bitcoin yet.
+
+-   `hash()` is a plain SHA256. Taproot never uses one.
+-   `Q` is a point. The scriptPubKey only has room for 32 bytes.
+-   "spend from Q" means a signature. We haven't defined one.
+
+So we pause Taproot for a moment and build the tools.
+
+## Four lessons
+
+| lesson | what it gives you |
+|---|---|
+| **Tagged Hashes** | the hash function Taproot uses everywhere |
+| **X-only Public Keys** | why a public key fits in 32 bytes |
+| **Schnorr Signatures** | the signature Taproot spends with |
+| **Nonce Reuse** | what breaks if you get the nonce wrong |
+
+## These are not Taproot rules
+
+Everything in this section comes from **BIP340**, not BIP341.
+
+That matters, because a lot of things people call "Taproot rules" are really BIP340 rules that Taproot just inherits. The even-y convention, `lift_x`, the 64-byte signature: none of them are Taproot's.
+
+A quick test: if a rule would still apply to a Schnorr signature over a plain text message, with no Bitcoin transaction anywhere, it's BIP340.
+
+<ExpandableAlert title="Nostr uses BIP340 too" type="info">
+Nostr uses BIP340 keys and signatures with the same even-y rule, and there is no Taproot involved at all.
+</ExpandableAlert>
+
+Both spend paths need these tools. The key path is a Schnorr signature. The script path uses tagged hashes for the tree, and its scripts check Schnorr signatures too.
+
+So this section isn't a detour. It's the floor everything else stands on.
+
+## Then what
+
+After these four, we go back to Taproot and build a real output: the tweak, the address, and the spend.
+
+Let's start with the hash.

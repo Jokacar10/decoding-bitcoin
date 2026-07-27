@@ -48,16 +48,12 @@ A redeem script is a script that defines the conditions under which funds can be
 
 Alice and Bob want to create a 2-of-2 multisig address. Their redeem script looks like this:
 
-<CodeSnippet
-    code={` 
-2
+<ScriptBlock
+    code={`2
 <public key Alice>
 <public key Bob>
 2
-OP_CHECKMULTISIG
-  `}
-    language="text"
-    showLineNumbers={true}
+OP_CHECKMULTISIG`}
 />
 
 This means both Alice's and Bob's signatures are required to spend the funds.
@@ -67,13 +63,7 @@ This means both Alice's and Bob's signatures are required to spend the funds.
 Now it's time to lock the funds into this script.  
 The scriptPubKey for the P2SH looks like this:
 
-<CodeSnippet
-    code={` 
-OP_HASH160 <20-byte hash of redeem script> OP_EQUAL
-  `}
-    language="text"
-    showLineNumbers={true}
-/>
+<ScriptBlock code="OP_HASH160 <20-byte hash of redeem script> OP_EQUAL" />
 
 As you can see, we still have to hash the redeem script we created before:
 
