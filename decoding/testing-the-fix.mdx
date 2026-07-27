@@ -1,0 +1,149 @@
+---
+title: "Exercises"
+date: 2026-07-24T00:00:00Z
+lastmod: "2026-07-24"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 507
+icon: "FaShieldAlt"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+Same setup as before. This time the tweak has P inside it.
+
+Your job is to run the attack again and watch it fail.
+
+```python
+from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+
+contract  = "Alice agrees to pay 10 BTC to Bob"
+contract2 = "Alice agrees to pay 0.1 BTC to Bob"
+```
+
+## Task 1: The new tweak
+
+Write the tweak function. The only change is that P goes in the hash.
+
+<PythonPlayground
+    preset="secp256k1"
+    height="24rem"
+    code={`from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+
+contract  = "Alice agrees to pay 10 BTC to Bob"
+contract2 = "Alice agrees to pay 0.1 BTC to Bob"
+
+def tweak(point, contract):
+    # TODO: hash the serialized point together with the contract
+    return ...
+
+t = tweak(P, contract)
+Q = point_add(P, point_mul(t))
+
+assert point_mul((d + t) % N) == Q
+print("Q =", ser(Q).hex())
+`}
+/>
+
+## Task 2: Try the old attack
+
+Alice runs exactly the same trick as last time.
+
+<PythonPlayground
+    preset="secp256k1"
+    height="28rem"
+    code={`from secp256k1 import *
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+
+contract  = "Alice agrees to pay 10 BTC to Bob"
+contract2 = "Alice agrees to pay 0.1 BTC to Bob"
+
+def tweak(point, contract):
+    return hash_to_int(ser(point), contract)   # from Task 1
+
+t = tweak(P, contract)
+Q = point_add(P, point_mul(t))
+
+# She computes her fake tweak the only way she can: using the P she has now.
+t2 = tweak(P, contract2)
+d2 = (d + t - t2) % N
+P2 = point_mul(d2)
+
+# But the tweak for P2 must be computed from P2, not from P.
+t2_real = tweak(P2, contract2)
+Q2 = point_add(P2, point_mul(t2_real))
+
+# TODO: is Q2 == Q ?
+print(Q2 == Q)
+`}
+/>
+
+**Why did it fail?** She needed `t2` to pick `P2`. But the real `t2` depends on `P2`, which didn't exist yet.
+
+## Task 3: Brute force
+
+Fine, forget algebra. Just try random keys until one works.
+
+<PythonPlayground
+    preset="secp256k1"
+    height="28rem"
+    code={`from secp256k1 import *
+import random
+
+d = 0x1111111111111111111111111111111111111111111111111111111111111111
+P = point_mul(d)
+contract  = "Alice agrees to pay 10 BTC to Bob"
+contract2 = "Alice agrees to pay 0.1 BTC to Bob"
+
+def tweak(point, contract):
+    return hash_to_int(ser(point), contract)
+
+t = tweak(P, contract)
+Q = point_add(P, point_mul(t))
+
+# Pure-Python curve math is slow in the browser, so keep the count small.
+TRIES = 30
+for _ in range(TRIES):
+    dx = random.randrange(1, N)
+    Px = point_mul(dx)
+    tx = tweak(Px, contract2)
+    if point_add(Px, point_mul(tx)) == Q:
+        print("found one!")
+        break
+else:
+    print(TRIES, "tries, nothing")
+`}
+/>
+
+A few tries is nothing. Neither is 2⁶⁴. To land on Q this way you'd have to break SHA-256.
+
+<ExpandableAlert
+    title="Solution code"
+    type="solution"
+    expandable={true}
+    initialLines={0}
+>
+```python
+def tweak(point, contract):
+    return hash_to_int(ser(point), contract)
+```
+
+Task 2 prints `False`. Task 3 finds nothing.
+</ExpandableAlert>
+
+## Question
+
+In Task 2, Alice had to guess `t2` before she could compute `P2`.
+
+Write down, in one sentence, the loop she is stuck in.

@@ -1,0 +1,83 @@
+---
+title: "Secure Commitment"
+date: 2026-07-24T00:00:00Z
+lastmod: "2026-07-24"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 506
+icon: "FaLock"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+Let's examine the cause of our insecure commitment first.
+
+We have:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \cdot G$$
+</div>
+
+The root cause is that nothing ties $t$ to $P$.
+
+Alice can pick any contract she wants, and then compute a $P'$ that makes it fit the same $Q$.
+
+Let's fix that.
+
+## The fix
+
+One small change: put $P$ inside the hash.
+
+<ScriptBlock
+    code={`t = hash(P || contract)
+Q = P + t·G`}
+/>
+
+Now let's take the same scenario, where Alice wants to swap the contract.
+
+She needs a new key $P'$ and a new tweak:
+
+<div className="text-center my-4 text-orange-500">
+  $$t' = \text{hash}(P' \, || \, \text{contract}')$$
+</div>
+
+For her forgery to work she needs the same $Q$, so she needs:
+
+<div className="text-center my-4 text-orange-500">
+  $$P + t \cdot G = P' + t' \cdot G$$
+</div>
+
+She knows $P$, $t$, and the fake contract'. The only thing missing is $P'$. So let's solve for it:
+
+<div className="text-center my-4 text-orange-500">
+  $$P' = P + t \cdot G - t' \cdot G$$
+</div>
+
+<div className="text-center my-4 text-orange-500">
+  $$P' = P + \text{hash}(P \, || \, \text{contract}) \cdot G - \text{hash}(P' \, || \, \text{contract}') \cdot G$$
+</div>
+
+Look at the last line.
+
+$P'$ appears on **both sides** of the equation.
+
+{/* TODO image */}
+
+To compute $P'$ she first needs $t'$. But $t'$ is a hash of $P'$. So she needs $P'$ before she can get $P'$.
+
+Alice can't pick $t'$ and solve for $P'$.
+
+Her only other option is to guess: try random $P'$ values until one happens to work. That means breaking the hash function.
+
+The commitment is now binding.
+
+<ExpandableAlert title="This is what taproot really does" type="info">
+This is exactly the shape taproot uses. The real tweak is
+
+`t = tagged_hash("TapTweak", P || merkle_root)`
+
+Same idea, the key is inside the hash. We'll build the real one later.
+</ExpandableAlert>

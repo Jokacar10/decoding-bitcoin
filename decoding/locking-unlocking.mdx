@@ -36,14 +36,7 @@ A locking script, also known as a ScriptPubKey, is placed on every output you cr
 
 **Example:** This script requires that the unlocking script provides a value that, when added to 2, equals 4.
 
-<CodeSnippet
-    code={` 
-  OP_2 OP_ADD OP_4 OP_EQUAL 
-`}
-    language="text"
-    highlightLines={[2]}
-    showLineNumbers={true}
-/>
+<ScriptBlock code="OP_2 OP_ADD OP_4 OP_EQUAL" />
 ## Unlocking Script
 
 An unlocking script, also known as a ScriptSig or Witness, is provided for every input you want to spend in a transaction. It contains the data needed to satisfy the conditions set by the locking script.
@@ -98,15 +91,11 @@ If the unlocking script successfully satisfies the conditions set by the locking
 
 Use the Bitcoin Stack simulator below to execute the combined script (unlocking script + locking script) provided below
 
-<CodeSnippet 
-  code={` 
-  locking_script = 2 OP_ADD 4 OP_EQUAL
-  unlocking script = 2
-`}
-  language="text"
-  highlightLines={[2, 3]}
-  showLineNumbers={true}
-
+<ScriptBlock
+    scripts={[
+        { label: "locking_script", code: "2 OP_ADD 4 OP_EQUAL" },
+        { label: "unlocking_script", code: "2" }
+    ]}
 />
 
 If the final stack contains true (1), the transaction is valid.

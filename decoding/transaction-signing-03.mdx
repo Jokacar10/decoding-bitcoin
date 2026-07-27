@@ -33,9 +33,13 @@ For signing a P2WPKH input, we need to generate the `scriptCode`
 
 The scriptCode template for P2WPKH is:
 
-<CodeSnippet
-    language="text"
-    code={`    scriptCode = OP_DUP OP_HASH160 <20-byte-pubkey-hash> OP_EQUALVERIFY OP_CHECKSIG`}
+<ScriptBlock
+    scripts={[
+        {
+            label: "scriptCode",
+            code: "OP_DUP OP_HASH160 <20-byte-pubkey-hash> OP_EQUALVERIFY OP_CHECKSIG"
+        }
+    ]}
 />
 
 In hex format:

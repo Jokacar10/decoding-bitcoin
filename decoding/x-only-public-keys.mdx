@@ -1,0 +1,232 @@
+---
+title: "X-only Public Keys"
+date: 2026-07-25T00:00:00Z
+lastmod: "2026-07-25"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 510
+parent: "schnorr-bip340"
+icon: "FaCompress"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+Remember from the Pay to Taproot section, the scriptPubKey is:
+
+<ScriptBlock scripts={[{ label: "P2TR scriptPubKey", code: "OP_1 OP_PUSHBYTES_32 <32-byte tweaked public key>" }]} />
+
+Did you notice the scriptPubKey here only has 32 bytes !!
+
+Q, our tweaked public key, is a point on an elliptic curve.
+
+A point on an elliptic curve should have $(x, y)$. So normally we would have 64 bytes: 32 for x and 32 for y.
+
+In Schnorr we use only the x coordinate, for compactness. We store those 32 bytes and throw the rest away.
+
+The question you might be asking is: how can we compute the y coordinate?
+
+## The curve gives it back to us
+
+Secp256k1 is defined by:
+
+<div className="text-center my-4 text-orange-500">
+  $$y^2 = x^3 + 7 \pmod p$$
+</div>
+
+So if we have $x$, we can calculate $y$:
+
+<div className="text-center my-4 text-orange-500">
+  $$y^2 = x^3 + 7$$
+</div>
+
+<div className="text-center my-4 text-orange-500">
+  $$y = \sqrt{x^3 + 7}$$
+</div>
+
+Done.
+
+$y$ is a square root, so it has two solutions:
+
+-   $y$
+-   $-y$
+
+<ExpandableAlert title="Two solutions?" type="info">
+Same as $\sqrt 9$ is both $+3$ and $-3$.
+</ExpandableAlert>
+
+And since our curve is on a finite field over $p$, there are no negative numbers. Every element $x$ and $y$ is an integer in $[0, p-1]$.
+
+So when we write $-y$ we have to reduce it into that range:
+
+<div className="text-center my-4 text-orange-500">
+  $$-y \bmod p = p - y$$
+</div>
+
+<ExpandableAlert title="The field prime p" type="info">
+$p$ is the field prime of secp256k1.
+
+$$p = 2^{256} - 2^{32} - 977$$
+
+Every $x$ and $y$ is an integer in $[0, p-1]$.
+</ExpandableAlert>
+
+So the two solutions are:
+
+-   $y$
+-   $p - y$
+
+Now we need to know which of these two is the correct one, so we can reconstruct the point $(x, y)$.
+
+How do we know?
+
+## The parity trick
+
+One of those two $y$ values is even and the other is odd. They can't be both even or both odd.
+
+Why? Because $p$ is an odd number.
+
+<div className="text-center my-4 text-orange-500">
+  $$p = 2^{256} - 2^{32} - 977 \quad\text{(odd)}$$
+</div>
+
+-   if $y$ is odd → $p - y$ is even (odd − odd = even)
+-   if $y$ is even → $p - y$ is odd (odd − even = odd)
+
+So our challenge is just to know whether our $y$ is odd or even.
+
+The solution is simple. BIP340 has this rule:
+
+> an x-only public key always means the point with the even y coordinate
+
+So whenever we read 32 bytes as a public key, we take the point whose y is even.
+
+<ExpandableAlert title="lift_x (optional)" type="info" expandable={true} initialLines={0}>
+```python
+def lift_x(x):
+    c = (x**3 + 7) % p
+    y = pow(c, (p + 1) // 4, p)     # square root
+    if (y * y) % p != c:
+        return None                  # x is not on the curve
+    return (x, y if y % 2 == 0 else p - y)
+```
+
+Two things to notice. The square root is one exponentiation, and that shortcut only works because $p \equiv 3 \pmod 4$. And the function can fail: if $x$ is not on the curve there is no square root, and the key is rejected.
+</ExpandableAlert>
+
+---
+
+## Three ways to encode a public key
+
+Bitcoin already had two formats before taproot. Worth seeing all three together.
+
+**Uncompressed: 65 bytes**
+
+<ScriptBlock code={`0x04 || x || y`} />
+
+Store both coordinates. 32 + 32 = 64 bytes, plus one prefix byte `0x04` meaning "uncompressed". This is the legacy format.
+
+**Compressed: 33 bytes**
+
+<ScriptBlock
+    code={`0x02 || x     → y is even
+0x03 || x     → y is odd`}
+/>
+
+We know y is only worth one bit, so throw y away and keep the bit. That is the whole job of the prefix byte. This is what you see in P2PKH, P2WPKH, xpubs.
+
+But look at it: a full byte to carry 1 bit. 7 bits wasted on every key.
+
+**x-only: 32 bytes**
+
+<ScriptBlock code={`x`} />
+
+BIP340 turns that bit into a rule instead of data. Nothing left to store.
+
+| format | size | how the y parity is known |
+|---|---|---|
+| uncompressed | 65 bytes | y is written out in full |
+| compressed | 33 bytes | stored in the prefix byte |
+| x-only | 32 bytes | fixed by the rule: always even |
+
+An x-only key is just a compressed key with the prefix removed. That is why BIP340 picked "even" and not some other rule: it keeps taproot compatible with every key generation system that already exists.
+
+---
+
+## Don't we lose half the keys ?
+
+Everyone asks this. The answer is no.
+
+Say your private key $d$ produces a point $P$ with an even $y$. Then we don't have to do anything, we already have what BIP340 requires.
+
+But if $d$ produces a point with an odd $y$, we can't use $P$.
+
+Watch what happens if we use $n - d$ instead:
+
+<div className="text-center my-4 text-orange-500">
+  $$n \cdot G = O \quad\text{(the point at infinity)}$$
+</div>
+
+<ExpandableAlert title="What is n?" type="info">
+$n$ is the order of the group: adding $G$ to itself $n$ times brings you back to $O$. That is the definition of $n$, and it is why private keys live mod $n$ and not mod $p$.
+
+Careful not to mix them: $p$ is the modulus for the coordinates, $n$ is the modulus for the private keys.
+</ExpandableAlert>
+
+<div className="text-center my-4 text-orange-500">
+  $$(n - d)\cdot G = n\cdot G - d\cdot G = O - P = -P$$
+</div>
+
+Now:
+
+<div className="text-center my-4 text-orange-500">
+  $$-P = -(x, y) = (x, -y)$$
+</div>
+
+Reducing into the field:
+
+<div className="text-center my-4 text-orange-500">
+  $$(x, -y) \bmod p = (x, p - y)$$
+</div>
+
+So the private key $n - d$ gives us an even-y point with the same 32 bytes of $x$.
+
+We call this **negating the private key**.
+
+Every $x$ is still reachable. You never lose a key, you just sometimes flip the private key before signing:
+
+<ScriptBlock
+    scripts={[
+        { code: "d = d      if P has even y" },
+        { code: "    n − d  if P has odd y" }
+    ]}
+/>
+
+## What it costs
+
+`lift_x` needs a square root, which is a full exponentiation. That makes verification around 10% slower than if we had stored the full 64-byte point. BIP340 says this openly and picks compactness anyway.
+
+That is the right call for Bitcoin. A node stores the output forever, but verifies it once.
+
+Size is not the only reason though. Having one unambiguous point per 32 bytes is also what makes **batch verification** possible: checking thousands of signatures at once. We'll come back to that at the end of the module.
+
+---
+
+## Recap
+
+<ScriptBlock
+    code={`65 bytes   0x04 || x || y      uncompressed
+33 bytes   0x02/0x03 || x      compressed  (parity as data)
+32 bytes   x                   x-only      (parity as a rule)`}
+/>
+
+-   A point needs x and y, but y is only worth one bit
+-   The curve equation recovers y, up to a sign
+-   BIP340 pins the sign by convention: always even
+-   Negating the private key gets you there when your key lands on the wrong side
+
+One last thing: it isn't only public keys. A Schnorr signature is `R.x || s`, 32 + 32 = 64 bytes, and that R is x-only for exactly the same reason.
+
+Which is the next lesson.

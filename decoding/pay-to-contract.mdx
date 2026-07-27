@@ -1,0 +1,122 @@
+---
+title: "Insecure Commitment"
+date: 2026-07-24T00:00:00Z
+lastmod: "2026-07-24"
+draft: false
+category: Taproot
+layout: TopicBanner
+order: 504
+icon: "FaFileSignature"
+images:
+    [
+        "/decoding-bitcoin/static/images/topics/thumbnails/taproot-roadmap-thumbnail.webp"
+    ]
+---
+
+So far we've treated $t$ as just a number, a 32 byte scalar.
+
+If $t$ is just random, this tweak achieves nothing. We've turned a key $P$ into another key $Q$, and now we spend with $d + t$ instead of $d$. What's the point !!
+
+But let's take another case. We treat $t$ as the hash of some data, a contract.
+
+Imagine we have:
+
+<ScriptBlock
+    code={`contract = "Alice pays Bob 2 BTC"
+t = hash(contract)`}
+/>
+
+So now $t$ is not a random 32 byte value anymore. It's the 32 byte output of a hash of a contract.
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \cdot G = P + \text{hash(contract)} \cdot G$$
+</div>
+
+We say $Q$ **commits** to the contract.
+
+It means the contract can't be changed. If someone tries to cheat and replaces "Alice pays Bob 2 BTC" with "Alice pays Bob 5 BTC", then $t$ changes, and if $t$ changes then $Q$ changes too.
+
+That's the whole trick:
+
+> A tweaked key is a commitment carried inside a public key $Q$.
+
+---
+
+## Insecure commitment
+
+Imagine this scenario.
+
+Alice wants to pay Bob 10 BTC. She creates a contract:
+
+<ScriptBlock code={`contract = "Alice agrees to pay 10 BTC to Bob"`} />
+
+Then she generates the tweaked key that commits to this contract:
+
+<div className="text-center my-4 text-orange-500">
+  $$t = \text{hash(contract)} \qquad Q = P + t \cdot G$$
+</div>
+
+Then she pays to $Q$.
+
+Everything is good until now, right ?
+
+It isn't.
+
+### Why it breaks
+
+Imagine Alice makes a second contract:
+
+<ScriptBlock
+    code={`contract' = "Alice agrees to pay 0.1 BTC to Bob"
+t' = hash(contract')`}
+/>
+
+A contract that pays Bob 0.1 instead of 10 BTC.
+
+Let's do some math. We know:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \cdot G = d \cdot G + t \cdot G = (d + t) \cdot G$$
+</div>
+
+Alice wants the fake contract $t'$ to give the same $Q$. So she picks a different private key:
+
+<div className="text-center my-4 text-orange-500">
+  $$d' = d + t - t'$$
+</div>
+
+$d'$ is the private key for a new point $P'$. And now she computes:
+
+<div className="text-center my-4 text-orange-500">
+  $$(d' + t') \cdot G = (d + t - t' + t') \cdot G = (d + t) \cdot G = Q \quad \text{← forged}$$
+</div>
+
+Did you notice ? Alice got the same $Q$ using a different contract.
+
+Bob is unaware of any of this. He only ever sees $Q$.
+
+So the same $Q$ commits to both contracts:
+
+<div className="text-center my-4 text-orange-500">
+  $$Q = P + t \cdot G \qquad Q = P' + t' \cdot G$$
+</div>
+
+### What Bob actually loses
+
+Bob thought $Q$ was proof that Alice committed to paying him 10 BTC.
+
+But Alice can open that same $Q$ to whichever contract suits her. Later she just shows $P'$ and contract', and claims the deal was always 0.1 BTC. Bob has no way to prove otherwise.
+
+A commitment is only useful if it can be opened one way. This one can be opened two ways, so it's worth nothing.
+
+### The root cause
+
+Look at what Alice did: she chose $P$ **after** choosing the contract.
+
+Nothing in `t = hash(contract)` stops her. The tweak knows about the contract, but it knows nothing about which key it is being added to.
+
+That's the hole we need to close, and it's what the next lesson is about.
+
+Try it below. Every contract you pick forges the same committed Q, so the commitment proves nothing. Flip to **Secure** to preview the fix: Q stops matching, and the forgery dies.
+
+<ForgerySlider />

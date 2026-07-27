@@ -1,11 +1,11 @@
 ---
-title: "Schnorr Signature"
+title: "Schnorr Signatures"
 date: 2024-01-25T15:32:14Z
 lastmod: "2024-07-26"
 draft: false
 category: Taproot
 layout: TopicBanner
-order: 503
+order: 511
 icon: "FaHashtag"
 images:
     [
@@ -21,6 +21,10 @@ Some code here uses Bitcoin Core's functional test framework.
 Working with this will not only help you understand Schnorr signatures but also give you practical experience with tools used in Bitcoin Core development, helping you take your first steps toward contributing to Bitcoin Core.
 
 </ExpandableAlert>
+
+In the last two lessons we built the pieces: tagged hashes, and x-only public keys.
+
+Now we put them together into a signature. This is the signature Taproot uses, and it's the only thing a key path spend contains.
 
 We have two main characters to help us understand how Schnorr signatures work:
 
@@ -59,7 +63,7 @@ The interaction between Alice and Bob involves two key steps: **Signature Genera
     />
 </div>
 
-Now, let’s follow Alice as she creates a Schnorr signature.
+Now, let's follow Alice as she creates a Schnorr signature.
 
 ## Signature Generation (Alice)
 
@@ -130,14 +134,14 @@ def generate_key_pair(secret=None, compressed=True):
 ### Step 2: Generate Nonce and Nonce Commitment (k, R)
 
 The nonce, referred to as `k`, is a random value that Alice generates during the signature process.  
-Its purpose is to introduces randomness into each signature.
+Its purpose is to introduce randomness into each signature.
 
 **Why do we need a nonce?**
 
 <span className="underline">**Answer:**</span> The nonce ensures that even if
-Alice signs the same message multiple times, each signature will be unique. This
-added randomness prevents attackers from analyzing repeated patterns and
-attempting to reverse-engineer Alice’s private key.
+Alice signs the same message multiple times, each signature will be different.
+Without it, the same key and message would always produce the same `s`, and the
+private key would fall straight out of the algebra.
 
 Alice generates the nonce `k` and computes the **Nonce Commitment**
 
@@ -161,41 +165,26 @@ _`k` is a scalar, `R` is a point on the elliptic curve._
 </div>
 
 <ExpandableAlert type="warning" title="Nonce Reuse Attack" expandable={false}>
-Reusing a nonce (k) when creating Schnorr signatures is extremely dangerous!  
-- Check out our detailed explanation in the [Nonce Reuse Attack](nonce-reuse-attack).
+Reusing a nonce (k) across two signatures is fatal. It leaks the private key in four lines of algebra.
+
+That is the whole subject of the [next lesson](nonce-reuse-attack).
 
 </ExpandableAlert>
 
-**Note:**  
-In the Taproot context, BIP340 requires that the y-coordinate of the point `R` (computed from `k`) is `even`
+**Note on the y-coordinate of R**
 
-[BitcoinOptech](https://bitcoinops.org) provides a more detailed explanation of this requirement:
+R is a point, but only its x-coordinate goes into the signature. So the same rule from the [X-only Public Keys](/decoding/x-only-public-keys) lesson applies here:
 
-<ExpandableAlert type="info" title="BIP340 (Taproot) Implementation Details" expandable={true} initialLines={2}>
-BIP340 defines a new way of encoding elliptic curve points. To make the encoding of a point as compact as possible, only the x-coordinate of the point is used (i.e., 32 bytes).
+-   R must have an **even** y coordinate
+-   if `k` gives an odd-y R, negate it and use `n − k` instead
 
-For a given x-coordinate on the secp256k1 curve, there are two possible curve points:
+Same for the key: P must have an even y, and if it doesn't, Alice uses `n − d`.
 
-$\mathbf{y^2 = x^3 + 7}$ (Two y-coordinate values for a given x-coordinate)
+Two negations, one rule. Everything that travels as 32 bytes must be even-y so it can be lifted back to exactly one point.
 
-For x, both (x, y) and (x, -y) are valid curve points (where -y is **SECP256K1_FIELD_SIZE - y** since all arithmetic involving coordinates is modulo **SECP256K1_FIELD_SIZE**).
+Let's generate a random nonce `k` and calculate its associated point `R`.
 
-One of the y-coordinates is **even**, and the other is **odd** (since SECP256K1_FIELD_SIZE is odd).
-
-One of the y-coordinates is a quadratic residue (has a square root modulo the field size), and the other is not.
-
-BIP340 constrains private key points `k` such that the y-value of `R` is **even**. This means that from the x-coordinate, the verifier can unambiguously determine y.
-
--   k and **SECP256K1_ORDER - k** have nonce points R = (x, y) and R = (x, -y) respectively.
--   Only one will have a y-coordinate that is **even**. If a randomly generated nonce k does not yield a valid nonce point R, then the signer can **negate** k to obtain a valid nonce.
-
-The same goes for private key d and its corresponding public key, P.
-
-</ExpandableAlert>
-
-Let’s generate a random nonce `k` and calculate its associated point `R`.
-
-This example shows how to check if `R`'s y-coordinate (and its negative, `-y`) is even or odd, which is crucial for Taproot’s nonce requirements.
+This example shows how to check if `R`'s y-coordinate (and its negative, `-y`) is even or odd.
 
 <PythonPlayground
     height="26rem"
@@ -335,13 +324,23 @@ def generate_key_pair():
 
 ### Step 3: Challenge Computation (h)
 
-Alice computes the challenge hash `h` using the following formula:
+Alice computes the challenge hash `h`:
 
 <div className="text-center my-4 text-orange-500">
   $$\mathbf{h = H(R \, || \, P \, || \, \text{message})}$$
 </div>
 
 The challenge hash is created by concatenating `R`, `P`, and the message `m`.
+
+In BIP340 this is a tagged hash, with the tag `BIP0340/challenge`.
+
+**Why is P in there ?**
+
+This is called **key prefixing**, and it matters a lot for Taproot.
+
+Without P in the hash, anyone can take a signature for key P and turn it into a valid signature for the key `P + a·G`, for any tweak `a` they choose. That would break every scheme built on adding a tweak to a key, which is exactly what Taproot does.
+
+Putting P inside the hash closes that.
 
 ### Step 4: Challenge Response (s)
 
@@ -353,8 +352,11 @@ Using the challenge hash, Alice calculates the challenge response `s`:
 
 ### Step 5: Create the Signature
 
-The final signature for the message is the pair `(R, s)`.  
-Alice sends both the message `m` and the signature `(R, s)` to Bob.
+The final signature is `R.x` followed by `s`. Only the x-coordinate of R is used, which is why R had to have an even y.
+
+<ScriptBlock code={`sig = R.x || s     32 + 32 = 64 bytes`} />
+
+Alice sends the message `m` and the signature to Bob.
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -369,11 +371,15 @@ Alice sends both the message `m` and the signature `(R, s)` to Bob.
     />
 </div>
 
+<ExpandableAlert type="info" title="A note on notation" expandable={true} initialLines={1}>
+We call the challenge hash `h`. BIP340 and most implementations call it `e`. Same value, different letter, don't be surprised when you open the spec.
+</ExpandableAlert>
+
 ### Hands-On: Complete the Code to Generate a Schnorr Signature
 
 Below is a code snippet that generates a Schnorr signature, but some key parts are missing. Follow the instructions in the code to complete it so that it runs successfully and displays a "Success!" message at the end.
 
-> **Note:** You'll see a method called `tagged_hash` in the code. If you're unfamiliar with tagged hashes and their purpose, refer to our previous topic on [Tagged Hashes](/decoding/tagged-hashes) for a quick refresher.
+> **Note:** You'll see a method called `tagged_hash` in the code. If you need a refresher, see [Tagged Hashes](/decoding/tagged-hashes).
 
 <PythonPlayground
     height="40rem"
@@ -434,77 +440,61 @@ print("Success!")`}
     expandable={true}
     initialLines={0}
 >
+
 ```python
 # main.py
 from key import generate_key_pair, ECKey, SECP256K1_FIELD_SIZE
 from script import tagged_hash, sha256
 
 # Initialize message
-
 msg = sha256(b'message')
 
 # Step 1: Generate a private/public key pair
-
 d, P = generate_key_pair()
 
 # Step 2: Ensure public key has even Y-coordinate
-
 if P.get_y() % 2 != 0:
-d.negate()
-P.negate()
+    d.negate()
+    P.negate()
 
 # Step 3: Generate nonce pair
-
 k, R = generate_key_pair()
 
 # Step 4: Ensure nonce point has even Y-coordinate
-
 if R.get_y() % 2 != 0:
-k.negate() # Note: No need to negate R since we only use x-coordinate
+    k.negate()   # No need to negate R, we only use its x-coordinate
 
 # Step 5: Generate signature components
-
-# Get required bytes for hash
-
 R_x_bytes = R.get_bytes()
 P_bytes = P.get_bytes()
 
 # Calculate challenge hash
-
 h_bytes = tagged_hash("BIP0340/challenge", R_x_bytes + P_bytes + msg)
 h = ECKey().set(h_bytes)
 
 # Calculate s value
-
-s = k + h \* d
-
-# Print intermediate results
+s = k + h * d
 
 print("R: {}".format(R))
 print("s: {}\n".format(s.get_bytes().hex()))
 
 # Step 6: Create final signature
-
 sig = R_x_bytes + s.get_bytes()
 print("Signature: {}\n".format(sig.hex()))
 
 # Step 7: Verify the signature
-
 assert P.verify_schnorr(sig, msg)
 print("Success!")
+```
 
-````
 </ExpandableAlert>
-
-
-
 
 ## Nonce Generation for Schnorr Signatures
 
-In the previous example, we used a random nonce for Schnorr signatures, which depends on a secure random generator. However, if this generator is compromised, it can expose the private key.
-
+In the previous example, we used a random nonce, which depends on a secure random generator. If that generator is compromised, it can expose the private key.
 
 #### Why is Nonce Generation Important?
+
 If the randomness in nonce generation is compromised, it can reveal the private key used in signing.
 To avoid this risk, BIP340 suggests a deterministic method for generating nonces.
 
@@ -515,6 +505,8 @@ To avoid this risk, BIP340 suggests a deterministic method for generating nonces
 2. **Generate `rand`**: Hash the tagged data with `t`, the public key (`P`), and the message (`m`).
 
 3. **Calculate `k` (Nonce)**: Set `k = int(rand) mod n`, where `n` is the order of the curve. This ensures a unique, unpredictable nonce for each signature.
+
+Notice the tags: `BIP0340/aux` and `BIP0340/nonce`. Two of the three tags we listed in the Tagged Hashes lesson show up right here.
 
 <div className="dark:hidden">
     <SvgDisplay
@@ -533,8 +525,7 @@ To avoid this risk, BIP340 suggests a deterministic method for generating nonces
 
 ### Coding Exercise: Nonce Generation
 
-To better understand how nonce generation works, try creating a Schnorr signature using BIP340’s nonce scheme. Follow the instructions in the code snippet below to implement the nonce generation steps yourself.
-
+To better understand how nonce generation works, try creating a Schnorr signature using BIP340's nonce scheme. Follow the instructions in the code snippet below to implement the nonce generation steps yourself.
 
 <PythonPlayground
     height="40rem"
@@ -603,17 +594,16 @@ print("Success!")`}
     expandable={true}
     initialLines={0}
 >
+
 ```python
 # main.py
 from key import generate_key_pair, generate_bip340_key_pair, ECKey, SECP256K1_FIELD_SIZE
 from script import tagged_hash, sha256
 
-
-
 msg = sha256(b'message')
 aux = sha256(b'random auxiliary data')
 
-# Generate a valid BIP340 priv-pub key pair using the convenience function `generate_bip340_key_pair`
+# Generate a valid BIP340 priv-pub key pair
 d, P = generate_bip340_key_pair()
 print("message = {}".format(msg.hex()))
 print("pubkey = {}\n".format(P.get_bytes().hex()))
@@ -625,9 +615,8 @@ rand = tagged_hash("BIP0340/nonce", t + P.get_bytes() + msg)
 # Generate the nonce value k and get the nonce point R
 k, R = generate_key_pair(rand)
 
-# Check that nonce has an even y coordinate
+# Check that nonce has an even y coordinate, negate k if not
 R_is_even = R.get_y() % 2 == 0
-# If not, negate k
 if not R_is_even:
     k.negate()
 
@@ -635,11 +624,9 @@ print("nonce: {}".format(k))
 print("nonce point: {}\n".format(R))
 
 # Generate s = k + tagged_hash("BIP0340/challenge", R_x|P_x|msg) * d
-# Method: tagged_hash("BIP0340/challenge", bytes) will give you the byte digest
-# Turn that digest into a ECKey object called h, and then set s = k + h * d
 R_x_bytes = R.get_bytes()
 P_bytes = P.get_bytes()
-h_bytes =  tagged_hash("BIP0340/challenge", R_x_bytes + P_bytes + msg)
+h_bytes = tagged_hash("BIP0340/challenge", R_x_bytes + P_bytes + msg)
 h = ECKey().set(h_bytes)
 s = k + h * d
 
@@ -647,12 +634,10 @@ print("R: {}".format(R))
 print("s: {}\n".format(s.get_bytes().hex()))
 
 # Generate sig = R_x|s
-# Method: get the x bytes from R and concatenate with the secret bytes from s
 sig = R_x_bytes + s.get_bytes()
-
 print("Signature: {}\n".format(sig.hex()))
 
-# Generate a signature using the ECKey.sign_schnorr(msg) method
+# Generate a signature using ECKey.sign_schnorr(msg)
 # This generates the nonce deterministically, so should return the same signature
 sig2 = d.sign_schnorr(msg, aux)
 
@@ -662,13 +647,13 @@ assert P.verify_schnorr(sig2, msg)
 assert sig == sig2
 
 print("Success!")
-````
+```
 
 </ExpandableAlert>
 
 ## Verification Process (Bob)
 
-Bob wants to ensure that the message hasn’t been compromised during transmission and that it’s genuinely signed by Alice.
+Bob wants to ensure that the message hasn't been compromised during transmission and that it's genuinely signed by Alice.
 
 To verify this, Bob checks if the following verification equation holds:
 
@@ -685,6 +670,8 @@ All the information needed for verification is already known to Bob:
 -   **h:** Bob computes `h = H(R || P || m)`. Since he has `R`, `P`, and `m`, he can calculate `h`.
 -   **P:** This is Alice's public key, which Bob knows in advance.
 
+Notice that Bob only receives `R.x`, not the full point. He recovers R with `lift_x`, and it works because Alice made sure R had an even y.
+
 Once Bob has confirmed that the equation holds, he can be fully assured that the message is authentic, has not been tampered with, and truly originated from Alice.
 
 <div className="dark:hidden">
@@ -699,4 +686,17 @@ Once Bob has confirmed that the equation holds, he can be fully assured that the
         height="auto"
     />
 </div>
-```
+
+---
+
+## Where this shows up in Taproot
+
+That 64-byte signature is the whole unlocking data of a P2TR key path spend. Nothing else.
+
+-   `P` becomes Q, the tweaked key sitting in the scriptPubKey
+-   `m` becomes the transaction sighash
+-   `R.x || s` becomes the single witness item
+
+We'll build all three in the next sections.
+
+Before that, one more thing about `k`. We said reusing it is fatal. Next lesson shows exactly how fatal.
