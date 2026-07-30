@@ -116,7 +116,3 @@ Look at what Alice did: she chose $P$ **after** choosing the contract.
 Nothing in `t = hash(contract)` stops her. The tweak knows about the contract, but it knows nothing about which key it is being added to.
 
 That's the hole we need to close, and it's what the next lesson is about.
-
-Try it below. Every contract you pick forges the same committed Q, so the commitment proves nothing. Flip to **Secure** to preview the fix: Q stops matching, and the forgery dies.
-
-<ForgerySlider />
