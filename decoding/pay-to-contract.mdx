@@ -28,8 +28,12 @@ t = hash(contract)`}
 
 So now $t$ is not a random 32 byte value anymore. It's the 32 byte output of a hash of a contract.
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \cdot G = P + \text{hash(contract)} \cdot G$$
+<div className="text-center my-4">
+
+$$
+Q = P + t \cdot G = P + \text{hash(contract)} \cdot G
+$$
+
 </div>
 
 We say $Q$ **commits** to the contract.
@@ -52,8 +56,12 @@ Alice wants to pay Bob 10 BTC. She creates a contract:
 
 Then she generates the tweaked key that commits to this contract:
 
-<div className="text-center my-4 text-orange-500">
-  $$t = \text{hash(contract)} \qquad Q = P + t \cdot G$$
+<div className="text-center my-4">
+
+$$
+t = \text{hash(contract)} \qquad Q = P + t \cdot G
+$$
+
 </div>
 
 Then she pays to $Q$.
@@ -75,20 +83,32 @@ A contract that pays Bob 0.1 instead of 10 BTC.
 
 Let's do some math. We know:
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \cdot G = d \cdot G + t \cdot G = (d + t) \cdot G$$
+<div className="text-center my-4">
+
+$$
+Q = P + t \cdot G = d \cdot G + t \cdot G = (d + t) \cdot G
+$$
+
 </div>
 
 Alice wants the fake contract $t'$ to give the same $Q$. So she picks a different private key:
 
-<div className="text-center my-4 text-orange-500">
-  $$d' = d + t - t'$$
+<div className="text-center my-4">
+
+$$
+d' = d + t - t'
+$$
+
 </div>
 
 $d'$ is the private key for a new point $P'$. And now she computes:
 
-<div className="text-center my-4 text-orange-500">
-  $$(d' + t') \cdot G = (d + t - t' + t') \cdot G = (d + t) \cdot G = Q \quad \text{← forged}$$
+<div className="text-center my-4">
+
+$$
+(d' + t') \cdot G = (d + t - t' + t') \cdot G = (d + t) \cdot G = Q \quad \text{← forged}
+$$
+
 </div>
 
 Did you notice ? Alice got the same $Q$ using a different contract.
@@ -97,8 +117,12 @@ Bob is unaware of any of this. He only ever sees $Q$.
 
 So the same $Q$ commits to both contracts:
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \cdot G \qquad Q = P' + t' \cdot G$$
+<div className="text-center my-4">
+
+$$
+Q = P + t \cdot G \qquad Q = P' + t' \cdot G
+$$
+
 </div>
 
 ### What Bob actually loses

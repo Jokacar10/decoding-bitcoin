@@ -71,8 +71,12 @@ Now, let's follow Alice as she creates a Schnorr signature.
 
 Alice generates a private key `d`, then calculates her public key `P` by multiplying her private key with the generator point:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{P = d \times G}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{P = d \times G}
+$$
+
 </div>
 
 <div className="dark:hidden">
@@ -145,8 +149,12 @@ private key would fall straight out of the algebra.
 
 Alice generates the nonce `k` and computes the **Nonce Commitment**
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{R = k \times G}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{R = k \times G}
+$$
+
 </div>
 
 _`k` is a scalar, `R` is a point on the elliptic curve._
@@ -326,8 +334,12 @@ def generate_key_pair():
 
 Alice computes the challenge hash `h`:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{h = H(R \, || \, P \, || \, \text{message})}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{h = H(R \, || \, P \, || \, \text{message})}
+$$
+
 </div>
 
 The challenge hash is created by concatenating `R`, `P`, and the message `m`.
@@ -346,8 +358,12 @@ Putting P inside the hash closes that.
 
 Using the challenge hash, Alice calculates the challenge response `s`:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s = k + h \times d}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s = k + h \times d}
+$$
+
 </div>
 
 ### Step 5: Create the Signature
@@ -657,8 +673,12 @@ Bob wants to ensure that the message hasn't been compromised during transmission
 
 To verify this, Bob checks if the following verification equation holds:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s \times G = R + h \times P}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s \times G = R + h \times P}
+$$
+
 </div>
 
 If the equation is valid, Bob can be confident that the signature was indeed created by Alice.

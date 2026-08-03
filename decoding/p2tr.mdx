@@ -18,7 +18,7 @@ images:
     ]
 ---
 
-So far we've seen many types of scriptPubKey in the previous modules: P2PKH, P2WPKH, P2SH, P2WSH.
+So far, we've seen many types of scriptPubKey in the previous modules: P2PKH, P2WPKH, P2SH, and P2WSH.
 
 <ExpandableAlert title="Reminder of the previous scripts" type="info">
 
@@ -33,14 +33,14 @@ So far we've seen many types of scriptPubKey in the previous modules: P2PKH, P2W
 
 </ExpandableAlert>
 
-Today we will learn about a new type of scriptPubKey called P2TR.
+In this lesson, we will learn about a new type of scriptPubKey called P2TR.
 
 P2TR has the following format:
 
 <ScriptBlock code="OP_1 <32B tweaked key>" />
 
 -   `OP_1` means segwit version 1
--   `<32B tweaked key>` is what we are going to spend the next chapters explaining
+-   `<32B tweaked key>` is what we are going to spend the next lessons explaining
 
 <ExpandableAlert title="Segwit v0 vs v1" type="info">
 
@@ -55,81 +55,111 @@ Segwit v0 is used in P2WPKH and P2WSH:
 
 Both start with `OP_0`, and that is what marks them as segwit v0.
 
-Segwit v1 is used in P2TR, and it is the one we are going to learn in this module:
+Segwit v1 is used in P2TR, and it is the one we are going to learn about in this module:
 
 <ScriptBlock scripts={[{ label: "P2TR", code: "OP_1 <32B tweaked key>" }]} />
 
 </ExpandableAlert>
 
-So far this looks like a simple script, and it can be spent with the private key corresponding to the tweaked key.
+So far, P2TR looks like a simple script.
+
+One way to spend it is with the private key corresponding to the `<32B tweaked key>`. This is called a **key-path spend**.
 
 But the tweaked key is built in a way that makes it interesting. Let's see how.
 
 ## Tweaking a public key
 
-The term "tweak" means we start from an original public key and we make a change to it, to get a tweaked public key.
+The term "tweak" means we start with an original public key and make a change to it to get a tweaked public key.
 
 And that's exactly what we are going to do here.
 
-Let's say we have an original public key $P$. Tweaking it means we alter it with a value (we call it the tweak $t$), so that we get a new tweaked public key we call $Q$.
+Let's say we have an original public key $P$.
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \cdot G$$
+Tweaking it means altering it with a value, which we call the tweak $t$, to get a new tweaked public key $Q$:
+
+<div className="text-center my-4">
+
+$$
+Q = P + t \cdot G
+$$
+
 </div>
 
-There's a lot going on here, so let's break this equation into two parts: $P$ the original public key, and $t \cdot G$.
+There's a lot going on here, so let's break this equation into two parts: $P$, the original public key, and $t \cdot G$.
 
 ### Part 1: $P$
 
-$P$ is our original public key. Let's call $d$ its private key.
+$P$ is our original public key. Let's call its private key $d$.
 
-<div className="text-center my-4 text-orange-500">
-  $$P = d \cdot G$$
+<div className="text-center my-4">
+
+$$
+P = d \cdot G
+$$
+
 </div>
 
-That's just scalar multiplication, the operation that turns a private key $d$ into a public key $P$. We do this by adding the generator point $G$ to itself $d$ times.
+That's just scalar multiplication, the operation that turns a private key $d$ into a public key $P$. We can think of it as adding the generator point $G$ to itself $d$ times.
 
 $P$ is also a point on the secp256k1 curve.
 
-We know from the previous lessons that if we have funds locked to a public key $P$, we can use the private key $d$ to sign and spend from it.
-
 ### Part 2: $t \cdot G$
 
-Now notice the second part of the equation, $t \cdot G$.
+Now notice the second part of the equation: $t \cdot G$.
 
-Doesn't this also look like a normal point on the secp256k1 curve, with $t$ acting as its private key?
+Doesn't this also look like a normal point on the secp256k1 curve, with $t$ acting like a private key?
 
-That's exactly what it is. $t \cdot G$ is a point, made by adding $G$ to itself $t$ times.
+That's exactly what it is mathematically. $t \cdot G$ is a point made by adding $G$ to itself $t$ times.
 
-We are going to call this point $T$, so it's easier to reference.
+We are going to call this point $T$, so it is easier to reference:
 
 -   $T$ is the tweak point
 -   $t$ is the tweak value
 
-<div className="text-center my-4 text-orange-500">
-  $$T = t \cdot G$$
+<div className="text-center my-4">
+
+$$
+T = t \cdot G
+$$
+
 </div>
 
 ### Putting it back together
 
-So $Q$, the tweaked public key, is just the addition of two points: $P$ the original public key, and $T$ the tweak point.
+So $Q$, the tweaked public key, is just the addition of two points: $P$, the original public key, and $T$, the tweak point.
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + T$$
+<div className="my-6">
+
+$$
+\begin{aligned}
+Q &= P + T \\
+  &= d \cdot G + t \cdot G \\
+  &= (d + t) \cdot G
+\end{aligned}
+$$
+
 </div>
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = d \cdot G + t \cdot G = (d + t) \cdot G$$
+Adding the two curve points $d \cdot G$ and $t \cdot G$ gives us a point whose private key is the sum of $d$ and $t$.
+
+The tweaked private key is therefore:
+
+<div className="text-center my-4">
+
+$$
+q = (d + t) \bmod n
+$$
+
 </div>
 
-Adding the two public keys $d \cdot G$ and $t \cdot G$ gives us the point whose private key is the sum $d + t$.
+Here, $n$ is the order of the secp256k1 generator point.
 
-That means if we have funds locked to the tweaked public key $Q$, we can spend them with the tweaked private key $d + t$.
+That means if we have funds locked to the tweaked public key $Q$, one way to spend them is by signing with the tweaked private key $q$.
 
-This works because $Q$ is just another point on the curve, made by an addition.
+This works because $Q$ is just another point on the curve, created through point addition.
 
 {/* ILLUSTRATION IDEA: point addition on secp256k1, P plus the tweak point T lands on Q,
-    with the tweaked private key (d + t) written underneath */}
+    with the tweaked private key q = (d + t) mod n written underneath */}
 
 ## The P2TR output
 
@@ -139,17 +169,36 @@ Remember the scriptPubKey we saw at the beginning:
 
 That `<32B tweaked key>` is the $Q$ we just computed.
 
-<ScriptBlock code={`OP_1 <Q>  =  OP_1 <P + T>  =  OP_1 <d·G + t·G>`} />
+<ScriptBlock
+    scripts={[
+        { code: "OP_1 <32B tweaked key> = OP_1 <Q>" },
+        { code: "                       = OP_1 <P + T>" },
+        { code: "                       = OP_1 <d·G + t·G>" }
+    ]}
+/>
 
-<ExpandableAlert title="A tweaked key looks like any other key" type="info">
-Someone looking at this script cannot tell a tweaked public key from an untweaked one. They both look the same, 32 bytes, just like any other public key. This is one of the properties of taproot: privacy.
+<ExpandableAlert title="A tweaked key looks like any other public key" type="info">
+
+From the outside, $Q$ looks like any other public key.
+
+Someone looking at it cannot tell whether it was created by tweaking another key or generated directly from a private key. The original key $P$ and the tweak $t$ remain hidden.
+
+This is one of Taproot's privacy properties.
+
 </ExpandableAlert>
 
-Right now the tweak $t$ is just some value. In the next lessons we will see what happens when we make $t$ commit to something. That is where taproot gets interesting.
+Right now, the tweak $t$ looks like just an arbitrary value. In the next lessons, we will see how we make it commit to data.
 
-## Signing with a tweaked keypair
+That is where Taproot gets interesting.
 
-We said that funds locked in $Q$ can be spent with the tweaked private key $x + t$. Let's prove it in code.
+<Exercise
+    title="Signing with a tweaked keypair"
+    intro="Prove in code that the tweaked private key signs for the tweaked public key. Skip it if you only want the theory."
+>
+
+We said that funds locked to $Q$ can be spent using the tweaked private key $(d+t) \bmod n$.
+
+Let's prove it in code.
 
 Fill in the two tweaked values, then press Run.
 
@@ -160,14 +209,14 @@ Fill in the two tweaked values, then press Run.
 from secp256k1 import add, mul, n
 from schnorr import schnorr_sign, schnorr_verify
 
-x = 0xb7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef  # original private key
+d = 0xb7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef  # original private key
 t = 0xcbd84a3f1c9e6a7d2f0b5e8134a6c9f70e2d5b8a1c4f7e0a3d6b9c2e5f8a1b4d  # tweak value
 
-P = mul(x)          # original public key   P = x*G
+P = mul(d)          # original public key   P = d*G
 T = mul(t)          # tweak point           T = t*G
 
 # TODO: build the tweaked public key   Q = P + T
-# TODO: build the tweaked private key  q = x + t   (mod n)
+# TODO: build the tweaked private key  q = d + t   (mod n)
 
 assert Q == mul(q)                        # the tweaked keypair matches
 
@@ -180,8 +229,8 @@ print("Success! The tweaked private key signs for the tweaked public key.")
 
 <Hint
     hints={[
-        "T is already t*G. Add two points with add(P, T).",
-        "The tweaked private key is the sum of the scalars, reduced mod n: (x + t) % n."
+        "T is already t*G. Add the two points with add(P, T).",
+        "The tweaked private key is the sum of the scalars, reduced mod n: (d + t) % n."
     ]}
 />
 
@@ -193,8 +242,12 @@ print("Success! The tweaked private key signs for the tweaked public key.")
 >
 ```python
 Q = add(P, T)          # Q = P + T
-q = (x + t) % n        # q = x + t (mod n)
+q = (d + t) % n        # q = d + t (mod n)
 ```
 </ExpandableAlert>
 
-The verifier only ever sees $Q$. It has no idea the key was built by adding a tweak. In the next lessons we make that tweak carry data, which is where taproot gets powerful.
+</Exercise>
+
+In this example, the verifier only sees $Q$. It has no idea that the key was built by adding a tweak.
+
+In the next lessons, we will make that tweak commit to data, which is where Taproot gets powerful.

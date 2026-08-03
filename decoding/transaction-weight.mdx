@@ -21,8 +21,12 @@ When sending Bitcoin transactions, we need to pay fees based on how much block s
 
 The most straightforward measurement is the raw byte count of a transaction:
 
-<div className="text-center my-4 text-orange-500">
-    $$\mathbf{Transaction\ Size = Bytes\ of\ serialized\ transaction}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{Transaction\ Size = Bytes\ of\ serialized\ transaction}
+$$
+
 </div>
 
 For example, here's a raw transaction in hexadecimal:
@@ -46,8 +50,12 @@ and divide by 2 (since each byte is represented by 2 hex characters).
 
 With the introduction of SegWit, a new measurement called "transaction weight" was created:
 
-<div className="text-center my-4 text-orange-500">
-    $$\mathbf{Transaction\ Weight = (Base\ Size × 4) + Witness\ Size}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{Transaction\ Weight = (Base\ Size × 4) + Witness\ Size}
+$$
+
 </div>
 
 Where:

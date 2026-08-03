@@ -29,8 +29,12 @@ children: ["transaction-weight", "blocksize-blockweight", "fee-rate", "rbf", "cp
 
 Fees in Bitcoin are calculated as the difference between inputs and outputs amounts.
 
-<div className="text-center my-4 text-orange-500">
-    $$\mathbf{Fee = \sum{Inputs} - \sum{Outputs}}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{Fee = \sum{Inputs} - \sum{Outputs}}
+$$
+
 </div>
 
 Let's calculate the fee for the following <a href="https://mempool.space/tx/c27c4d2236fce2a7542e024408d7f89b95e50e42a2c3d10be499c3102ccb45ef" target="_blank" rel="noopener noreferrer">transaction</a>:
@@ -92,8 +96,12 @@ Miners receive two types of payment for securing the network:
 
 A miner who mines a block will have revenue as:
 
-<div className="text-orange-500 text-sm">
-    $$Revenue = Tx\ Fees + Block\ Subsidy$$
+<div className="text-sm">
+
+$$
+Revenue = Tx\ Fees + Block\ Subsidy
+$$
+
 </div>
 
 To maximize their revenue, miners prioritize transactions that pay higher fees. The way they determine which transactions pay more will be covered in the [Fee Rate](/decoding/fee-rate) topic.
