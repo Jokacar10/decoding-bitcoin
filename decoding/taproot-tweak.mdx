@@ -16,20 +16,32 @@ images:
 
 Until now we went from a tweaked key that looks like
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \times G = P + \text{hash}(P \, || \, \text{data}) \times G$$
+<div className="text-center my-4">
+
+$$
+Q = P + t \times G = P + \text{hash}(P \, || \, \text{data}) \times G
+$$
+
 </div>
 
 into
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + \text{taggedhash}(P) \times G$$
+<div className="text-center my-4">
+
+$$
+Q = P + \text{taggedhash}(P) \times G
+$$
+
 </div>
 
 And from the [Tagged Hashes](/decoding/tagged-hashes) lesson we know that
 
-<div className="text-center my-4 text-orange-500">
-  $$\text{tagged\_hash}(\text{tagName}, P) = \text{sha256}(\text{sha256}(\text{tagName}) \, || \, \text{sha256}(\text{tagName}) \, || \, P)$$
+<div className="text-center my-4">
+
+$$
+\text{tagged\_hash}(\text{tagName}, P) = \text{sha256}(\text{sha256}(\text{tagName}) \, || \, \text{sha256}(\text{tagName}) \, || \, P)
+$$
+
 </div>
 
 We need now the tag we use for the tweak.
@@ -38,8 +50,12 @@ The tag we use for the tweak is **"TapTweak"**.
 
 So our tweak becomes:
 
-<div className="text-center my-4 text-orange-500">
-  $$t = \text{tagged\_hash}(\text{"TapTweak"}, P)$$
+<div className="text-center my-4">
+
+$$
+t = \text{tagged\_hash}(\text{"TapTweak"}, P)
+$$
+
 </div>
 
 <ExpandableAlert title="Why a tagged hash again?" type="info">
@@ -48,8 +64,12 @@ Remember the reason we use a tagged hash: it lets us hash the same data in diffe
 
 So we end up with the final tweaked key $Q$:
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + \text{sha256}(\text{sha256}(\text{"TapTweak"}) \, || \, \text{sha256}(\text{"TapTweak"}) \, || \, P) \times G$$
+<div className="text-center my-4">
+
+$$
+Q = P + \text{sha256}(\text{sha256}(\text{"TapTweak"}) \, || \, \text{sha256}(\text{"TapTweak"}) \, || \, P) \times G
+$$
+
 </div>
 
 ## Code

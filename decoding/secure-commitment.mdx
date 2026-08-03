@@ -17,8 +17,12 @@ Let's examine the cause of our insecure commitment first.
 
 We have:
 
-<div className="text-center my-4 text-orange-500">
-  $$Q = P + t \cdot G$$
+<div className="text-center my-4">
+
+$$
+Q = P + t \cdot G
+$$
+
 </div>
 
 The root cause is that nothing ties $t$ to $P$.
@@ -40,24 +44,40 @@ Now let's take the same scenario, where Alice wants to swap the contract.
 
 She needs a new key $P'$ and a new tweak:
 
-<div className="text-center my-4 text-orange-500">
-  $$t' = \text{hash}(P' \, || \, \text{contract}')$$
+<div className="text-center my-4">
+
+$$
+t' = \text{hash}(P' \, || \, \text{contract}')
+$$
+
 </div>
 
 For her forgery to work she needs the same $Q$, so she needs:
 
-<div className="text-center my-4 text-orange-500">
-  $$P + t \cdot G = P' + t' \cdot G$$
+<div className="text-center my-4">
+
+$$
+P + t \cdot G = P' + t' \cdot G
+$$
+
 </div>
 
 She knows $P$, $t$, and the fake contract'. The only thing missing is $P'$. So let's solve for it:
 
-<div className="text-center my-4 text-orange-500">
-  $$P' = P + t \cdot G - t' \cdot G$$
+<div className="text-center my-4">
+
+$$
+P' = P + t \cdot G - t' \cdot G
+$$
+
 </div>
 
-<div className="text-center my-4 text-orange-500">
-  $$P' = P + \text{hash}(P \, || \, \text{contract}) \cdot G - \text{hash}(P' \, || \, \text{contract}') \cdot G$$
+<div className="text-center my-4">
+
+$$
+P' = P + \text{hash}(P \, || \, \text{contract}) \cdot G - \text{hash}(P' \, || \, \text{contract}') \cdot G
+$$
+
 </div>
 
 Look at the last line.

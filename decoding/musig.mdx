@@ -69,8 +69,12 @@ Now we need your focus here, please. Grab a coffee.
 
 Alice, Bob, and Carol want to create an aggregated signature such as:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_{agg} = s_a + s_b + s_c}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_{agg} = s_a + s_b + s_c}
+$$
+
 </div>
 
 To create this signature, we need to go through three main steps:
@@ -107,8 +111,12 @@ Some of these steps require rounds of communication between participants:
 
 A naive way to do public key aggregation is by summing up each participant's public key:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{P_{agg} = P_a + P_b + P_c}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{P_{agg} = P_a + P_b + P_c}
+$$
+
 </div>
 
 However, this approach is vulnerable to a **key cancellation attack.**
@@ -146,8 +154,12 @@ When Alice calculates the signature, this manipulation causes issues.
 
 The aggregated Schnorr signature equation is:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_{agg} = s_a + s_b'}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_{agg} = s_a + s_b'}
+$$
+
 </div>
 
 Expanding it:
@@ -167,8 +179,12 @@ Bob can now sign the transaction alone without Alice's cooperation: **s_agg = s_
 
 To counteract this, we add a **challenge factor** to each participant's public key:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{P'_i = c_i \times P_i}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{P'_i = c_i \times P_i}
+$$
+
 </div>
 
 The challenge factor is generated from a hash of **all** participants' individual public keys: first **c<span className="text-xs align-sub">all</span> = H(P<span className="text-xs align-sub">a</span>, P<span className="text-xs align-sub">b</span>, P<span className="text-xs align-sub">c</span>)**, then **c<span className="text-xs align-sub">i</span> = H(c<span className="text-xs align-sub">all</span> | P<span className="text-xs align-sub">i</span>)**.
@@ -473,8 +489,12 @@ print("Success!")
 
 After computing the **aggregate public key** ($P_{agg}$) and **aggregate nonce** ($R_{agg}$), each participant calculates their **partial signature**:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_i = k_i + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_i}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_i = k_i + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_i}
+$$
+
 </div>
 
 Where:
@@ -487,14 +507,22 @@ Where:
 
 Participants exchange their $s_i$ values, and the **aggregate signature** is computed as:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_{agg} = s_a + s_b + s_c}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_{agg} = s_a + s_b + s_c}
+$$
+
 </div>
 
 This simplifies to:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_{agg} = k_{agg} + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_{agg}}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_{agg} = k_{agg} + H(x(R_{agg}) \, || \, P_{agg} \, || \, m) \times d_{agg}}
+$$
+
 </div>
 
 Where:

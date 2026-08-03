@@ -15,8 +15,12 @@ When miners select transactions for inclusion in a block, they don't just look a
 
 This is how we calculate the fee rate:
 
-<div className="text-center my-4 text-orange-500">
-    $$\mathbf{Fee\ Rate = \frac{Transaction\ Fee}{Transaction\ Size}}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{Fee\ Rate = \frac{Transaction\ Fee}{Transaction\ Size}}
+$$
+
 </div>
 
 Miners use the fee rate to maximize their profit by comparing the profitability of including different transactions in their blocks.
@@ -80,8 +84,12 @@ There are three common ways to measure fee rates:
 
 Virtual bytes (vBytes) are a way to express transaction size that accounts for the SegWit discount. The formula is simple:
 
-<div className="text-center my-4 text-orange-500">
-    $$\mathbf{Virtual\ Bytes = Transaction\ Weight ÷ 4}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{Virtual\ Bytes = Transaction\ Weight ÷ 4}
+$$
+
 </div>
 
 <div className="overflow-x-auto">

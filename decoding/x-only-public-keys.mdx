@@ -32,18 +32,30 @@ The question you might be asking is: how can we compute the y coordinate?
 
 Secp256k1 is defined by:
 
-<div className="text-center my-4 text-orange-500">
-  $$y^2 = x^3 + 7 \pmod p$$
+<div className="text-center my-4">
+
+$$
+y^2 = x^3 + 7 \pmod p
+$$
+
 </div>
 
 So if we have $x$, we can calculate $y$:
 
-<div className="text-center my-4 text-orange-500">
-  $$y^2 = x^3 + 7$$
+<div className="text-center my-4">
+
+$$
+y^2 = x^3 + 7
+$$
+
 </div>
 
-<div className="text-center my-4 text-orange-500">
-  $$y = \sqrt{x^3 + 7}$$
+<div className="text-center my-4">
+
+$$
+y = \sqrt{x^3 + 7}
+$$
+
 </div>
 
 Done.
@@ -61,14 +73,20 @@ And since our curve is on a finite field over $p$, there are no negative numbers
 
 So when we write $-y$ we have to reduce it into that range:
 
-<div className="text-center my-4 text-orange-500">
-  $$-y \bmod p = p - y$$
+<div className="text-center my-4">
+
+$$
+-y \bmod p = p - y
+$$
+
 </div>
 
 <ExpandableAlert title="The field prime p" type="info">
 $p$ is the field prime of secp256k1.
 
-$$p = 2^{256} - 2^{32} - 977$$
+$$
+p = 2^{256} - 2^{32} - 977
+$$
 
 Every $x$ and $y$ is an integer in $[0, p-1]$.
 </ExpandableAlert>
@@ -88,8 +106,12 @@ One of those two $y$ values is even and the other is odd. They can't be both eve
 
 Why? Because $p$ is an odd number.
 
-<div className="text-center my-4 text-orange-500">
-  $$p = 2^{256} - 2^{32} - 977 \quad\text{(odd)}$$
+<div className="text-center my-4">
+
+$$
+p = 2^{256} - 2^{32} - 977 \quad\text{(odd)}
+$$
+
 </div>
 
 -   if $y$ is odd → $p - y$ is even (odd − odd = even)
@@ -165,8 +187,12 @@ But if $d$ produces a point with an odd $y$, we can't use $P$.
 
 Watch what happens if we use $n - d$ instead:
 
-<div className="text-center my-4 text-orange-500">
-  $$n \cdot G = O \quad\text{(the point at infinity)}$$
+<div className="text-center my-4">
+
+$$
+n \cdot G = O \quad\text{(the point at infinity)}
+$$
+
 </div>
 
 <ExpandableAlert title="What is n?" type="info">
@@ -175,20 +201,32 @@ $n$ is the order of the group: adding $G$ to itself $n$ times brings you back to
 Careful not to mix them: $p$ is the modulus for the coordinates, $n$ is the modulus for the private keys.
 </ExpandableAlert>
 
-<div className="text-center my-4 text-orange-500">
-  $$(n - d)\cdot G = n\cdot G - d\cdot G = O - P = -P$$
+<div className="text-center my-4">
+
+$$
+(n - d)\cdot G = n\cdot G - d\cdot G = O - P = -P
+$$
+
 </div>
 
 Now:
 
-<div className="text-center my-4 text-orange-500">
-  $$-P = -(x, y) = (x, -y)$$
+<div className="text-center my-4">
+
+$$
+-P = -(x, y) = (x, -y)
+$$
+
 </div>
 
 Reducing into the field:
 
-<div className="text-center my-4 text-orange-500">
-  $$(x, -y) \bmod p = (x, p - y)$$
+<div className="text-center my-4">
+
+$$
+(x, -y) \bmod p = (x, p - y)
+$$
+
 </div>
 
 So the private key $n - d$ gives us an even-y point with the same 32 bytes of $x$.

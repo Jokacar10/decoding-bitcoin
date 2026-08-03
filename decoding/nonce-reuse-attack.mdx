@@ -41,8 +41,12 @@ Each signature needs a new $k$. Reuse it across two signatures and the private k
 
 Recall the Schnorr signature $(R, s)$ from the previous page:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s = k + h \cdot d}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s = k + h \cdot d}
+$$
+
 </div>
 
 Here $d$ is the private key, $k$ the nonce, and $h$ the challenge hash `tagged_hash("BIP0340/challenge", R || P || m)` reduced mod $n$ (the order of the curve).
@@ -64,12 +68,20 @@ The nonce sets the nonce point $R = k \cdot G$. Same $k$ means the same $R$. So 
 
 Sign transaction 1 and transaction 2 with the same $k$:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_1 = k + h_1 \cdot d}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_1 = k + h_1 \cdot d}
+$$
+
 </div>
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_2 = k + h_2 \cdot d}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_2 = k + h_2 \cdot d}
+$$
+
 </div>
 
 where $h_1 = H(R \, || \, P \, || \, \text{tx}_1)$ and $h_2 = H(R \, || \, P \, || \, \text{tx}_2)$. Only the challenge hash differs. $k$ and $d$ are identical in both lines.
@@ -78,14 +90,22 @@ where $h_1 = H(R \, || \, P \, || \, \text{tx}_1)$ and $h_2 = H(R \, || \, P \, 
 
 Subtract the two equations. The nonce $k$ cancels:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{s_1 - s_2 = (h_1 - h_2) \cdot d}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{s_1 - s_2 = (h_1 - h_2) \cdot d}
+$$
+
 </div>
 
 Divide to isolate $d$:
 
-<div className="text-center my-4 text-orange-500">
-  $$\mathbf{d = \frac{s_1 - s_2}{h_1 - h_2} \pmod n}$$
+<div className="text-center my-4">
+
+$$
+\mathbf{d = \frac{s_1 - s_2}{h_1 - h_2} \pmod n}
+$$
+
 </div>
 
 Every value on the right is public. $s_1$ and $s_2$ sit in the two signatures. $h_1$ and $h_2$ anyone can recompute from $R$, $P$, and the two messages.
